@@ -111,7 +111,7 @@ LINES: dict[str, list[str]] = {
         "¿Qué te traigo?",
     ],
     "help_intro_client": [
-        "🐈‍⬛ Bienvenido, {voc}. Soy <b>Kuro</b>: fui el felyne camarada del miauestro en sus años de "
+        "🐈‍⬛ Bienvenido, {voc}. Soy <b>Kuro</b>: fui el camarada felyne del miauestro en sus años de "
         "cazador y, ya retirado, me dedico a traer anime de {site}, nya.",
         "🐈‍⬛ Nyaa~ Soy <b>Kuro</b>, {voc}. Antes le pasaba barriles bomba a un cazador de rango G; ahora "
         "paso anime de {site}. Pesa menos y explota mucho menos.",
