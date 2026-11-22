@@ -1,0 +1,12 @@
+.git
+.env
+.env.*
+data/
+tests/
+*.tar.xz
+*.tar.gz
+*.bak
+*.bak-*
+**/__pycache__
+*.py[cod]
+restart.sh*

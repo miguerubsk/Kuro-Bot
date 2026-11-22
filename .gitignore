@@ -1,0 +1,37 @@
+# Secretos y configuración local (plantilla: .env.example)
+.env
+.env.*
+!.env.example
+
+# Datos de ejecución: BD con peticiones, nombres e ids de chat de los usuarios
+data/
+*.db
+*.sqlite3
+
+# Scripts propios de cada máquina (plantilla: restart.sh.example)
+restart.sh
+
+# Copias de seguridad
+*.tar.xz
+*.tar.gz
+*.bak
+*.bak-*
+bak*/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Editores y sistema
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Ajustes locales de Claude Code
+.claude/settings.local.json

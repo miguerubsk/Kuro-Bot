@@ -1,0 +1,20 @@
+services:
+  requester-bot:
+    build: .
+    container_name: requester-bot
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - DATA_DIR=/data
+    volumes:
+      - ./data:/data
+    networks:
+      - anime-automator
+    # sin puertos: el bot usa long polling contra Telegram
+
+# Se une a la red del stack de Anime-Automator para hablar con
+# anime-automator:5000 y con su navegador browser-sockpuppet-chrome:3000
+networks:
+  anime-automator:
+    external: true
+    name: ${AUTOMATOR_NETWORK:-anime-automator_default}
