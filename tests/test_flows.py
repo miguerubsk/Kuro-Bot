@@ -14,8 +14,8 @@ from telegram.error import BadRequest, NetworkError
 
 from bot.config import Settings
 from bot.core.models import Status
-from bot.handlers.admin import Descargados, HistoryPage, Pendientes
-from bot.handlers.general import Cupo, Start
+from bot.handlers.admin import Alta, Descargados, HistoryPage, Pendientes
+from bot.handlers.general import Cupo, Help, Start
 from bot.handlers.orders import Decision, Pick, PickAll
 from bot.handlers.search import CardPage, Cancel, FreeText
 from bot.kuro import Kuro
@@ -372,6 +372,47 @@ class TestHistoryAndCommands(KuroTest):
         await self.type(Start, STRANGER, args=["gato"])
         self.assertTrue(self.k.access.allows(STRANGER))
         self.assertTrue(self.bot.to(ADMIN))   # aviso de alta
+
+    async def test_stranger_is_told_password_or_code(self):
+        self.make(allowed_chat_ids=frozenset(), access_keyword="gato")
+        await self.type(Start, STRANGER)
+        text = self.bot.to(STRANGER)[-1].text
+        self.assertIn("/start contraseña", text)
+        self.assertIn(str(STRANGER), text)
+
+    async def test_admin_lets_in_by_code(self):
+        for n, cfg in enumerate((dict(allowed_chat_ids=frozenset(), access_keyword="gato"), {})):
+            with self.subTest(cfg=cfg):
+                self.make(**cfg)
+                who = STRANGER + 10 * n   # misma BD en las dos vueltas
+                self.chat_data.setdefault(who, {})
+                self.assertFalse(self.k.access.allows(who))
+                await self.type(Alta, ADMIN, args=[str(who), "Pepe"])
+                self.assertTrue(self.k.access.allows(who))
+                self.assertIn("/pedir", self.bot.to(who)[-1].text)   # bienvenida con la ayuda
+                self.assertIn("Pepe", self.bot.to(ADMIN)[-1].text)
+                await self.type(Alta, STRANGER, args=[str(who + 1)])
+                self.assertFalse(self.k.access.allows(who + 1))      # solo el admin
+
+    async def test_help_explains_everything(self):
+        await self.type(Help, CLIENT)
+        text = self.bot.to(CLIENT)[-1].text
+        for part in ("Cómo se pide", "El trato", "/cupo", "/pedir", "/id"):
+            self.assertIn(part, text)
+        self.assertNotIn("/seguimientos", text)   # sin change-detection no se ofrece
+        await self.type(Help, ADMIN)
+        text = self.bot.to(ADMIN)[-1].text
+        for part in ("/pendientes", "/descargados", "/resetcupo", "/alta"):
+            self.assertIn(part, text)
+
+    def test_trust_grows_with_served_animes(self):
+        levels = [self.k.trust(CLIENT)]
+        for i in range(7):
+            post = PostInfo(100 + i, f"T{i}", "u", "p", "1", False, "")
+            self.k.db.add(CLIENT, "c", post, Status.COMPLETED)
+            self.k.db.add(CLIENT, "c", post, Status.COMPLETED)   # el mismo anime otra vez no suma
+            levels.append(self.k.trust(CLIENT))
+        self.assertEqual(levels, [0, 1, 1, 2, 2, 2, 2, 3])
 
 
 class TestMessenger(KuroTest):

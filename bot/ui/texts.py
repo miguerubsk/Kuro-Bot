@@ -13,14 +13,36 @@ class Texts:
         return self.k.persona.say(key, to, **kw)
 
     def help(self, chat_id: int) -> str:
-        common = "\n\n/cupo — encargos que te quedan\n/id — número de este chat\n/ayuda — esta ayuda"
+        """/ayuda: presentación, cómo funciona cada cosa, el trato y los comandos (cada bloque, un párrafo)."""
+        say = self.k.persona.to(chat_id)
+        tracking = self.k.tracker.enabled
         if self.k.is_admin(chat_id):
-            return (self._say("help_intro_boss", chat_id) + common
-                    + "\n/pendientes — encargos por aprobar\n/resetcupo [chat] — reinicia cupos"
-                    + "\n/descargados — lo que ha pedido cada uno\n\n"
-                    + self._say("help_admin", chat_id))
-        return (self._say("help_intro_client", chat_id) + common + "\n\n"
-                + self._say("help_user", chat_id, limit=self.k.quota.limit))
+            clients = ["/descargados — lo que ha pedido cada uno",
+                       "/resetcupo [código] — devolver los cupos (de uno o de todos)"]
+            if self.k.access.can_add:
+                clients.append("/alta código [nombre] — dejar pasar a alguien por su código de cliente")
+            commands = ["/pedir nombre — buscar un anime", "/pendientes — encargos por decidir"]
+            if tracking:
+                commands.append("/seguimientos — todo lo que se vigila cada semana")
+            commands += ["/id — número de este chat", "/ayuda — esta ayuda"]
+            blocks = [say("help_intro_boss"), say("help_how_boss")]
+            if tracking:
+                blocks.append(say("help_track_boss"))
+            blocks += [say("help_rules_head") + "\n" + say("help_admin"),
+                       say("help_clients_head") + "\n" + "\n".join(clients),
+                       say("help_commands_head") + "\n" + "\n".join(commands)]
+            return "\n\n".join(blocks)
+
+        commands = ["/pedir nombre — buscar un anime", "/cupo — cuántos encargos te quedan esta semana"]
+        if tracking:
+            commands.append("/seguimientos — lo que te vigilo cada semana (y dejar de seguirlo)")
+        commands += ["/id — tu código de cliente", "/ayuda — esta ayuda"]
+        blocks = [say("help_intro_client"), say("help_how")]
+        if tracking:
+            blocks.append(say("help_track", limit=self.k.tracker.limit))
+        blocks += [say("help_rules_head") + "\n" + say("help_user", limit=self.k.quota.limit),
+                   say("help_commands_head") + "\n" + "\n".join(commands)]
+        return "\n\n".join(blocks)
 
     def no_quota(self, chat_id: int) -> str:
         nxt = self.k.quota.next_slot(chat_id)

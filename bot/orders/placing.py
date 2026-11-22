@@ -120,17 +120,31 @@ class Placing(ABC):
         self.chat_id = submitter.chat_id
         self.say = kuro.persona.to(self.chat_id)
         self.exempt = False
+        self.airing: list[PostInfo] = []   # lo leído que está en emisión: se ofrece vigilarlo
 
     async def run(self):
         try:
             items = await self.collect()
         except Stop:
-            return
+            # aunque no haga falta bajar nada (ya está todo), lo que salga después sí
+            return await self.offer_tracking()
         self.exempt = all(i.check is not None and i.check.exempt for i in items)
         if self.sub.blocked_by_quota(self.exempt):
             await self.out.edit(self.k.texts.no_quota(self.chat_id))
             return
         await self.sub.submit(self, self.store(items))
+        await self.offer_tracking()
+
+    def saw(self, post: PostInfo):
+        if post.airing and not post.movie and post.paste_url:
+            self.airing.append(post)
+
+    async def offer_tracking(self):
+        for post in self.airing:
+            try:
+                await self.k.tracker.offer(self.chat_id, self.sub.user_name, post)
+            except Exception:
+                log.exception("Fallo ofreciendo el seguimiento de %s", post.title)
 
     async def stop(self, key: str, **kw):
         await self.out.edit(self.say(key, **kw))
@@ -197,6 +211,7 @@ class SinglePlacing(Placing):
             await self.stop("post_error")
         if not post.paste_url:
             await self.stop("no_link", title=post.title)
+        self.saw(post)
 
         check = None
         if self.sub.checks_library:
@@ -250,6 +265,7 @@ class BundlePlacing(Placing):
                 continue
             if not post.paste_url:
                 continue
+            self.saw(post)
             check = await self.sub.check(post)
             if check is not None and not check.available:
                 self.skipped.append(f"T{season}")

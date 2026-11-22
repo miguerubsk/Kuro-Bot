@@ -13,9 +13,11 @@ import urllib.parse
 import httpx
 
 from .. import aliases
+from ..netblock import NetBypass
 from .fetchers import HEADERS, BrowserFetcher, DirectFetcher, FallbackFetcher, Fetcher
 from .models import Details, PostInfo, SearchResult
 from .parsing import clean_title, is_allowed_url, is_cover_url, parse_details, parse_post_html
+from .ranking import rank
 
 __all__ = ["JapanpawClient", "Details", "PostInfo", "SearchResult", "clean_title"]
 
@@ -24,15 +26,17 @@ log = logging.getLogger(__name__)
 
 class JapanpawClient:
     MAX_RESULTS = 8
+    FETCH_RESULTS = 100      # se piden muchos (lo máximo de WordPress) y se ordenan antes de recortar
     MIN_DIRECT_RESULTS = 3   # con menos, se prueba también con otros nombres (AniList)
 
     def __init__(self, base_url: str, browser_url: str, force_browser: bool = False,
-                 fetcher: Fetcher | None = None):
+                 fetcher: Fetcher | None = None, proxy: str = ""):
         self.base = base_url.rstrip("/")
         self._http: httpx.AsyncClient | None = None
+        self.bypass = NetBypass(proxy, HEADERS)
         browser = BrowserFetcher(browser_url)
         self.fetcher = fetcher or (browser if force_browser
-                                   else FallbackFetcher(DirectFetcher(lambda: self.http), browser))
+                                   else FallbackFetcher(DirectFetcher(lambda: self.http, self.bypass), browser))
 
     @property
     def http(self) -> httpx.AsyncClient:
@@ -44,6 +48,7 @@ class JapanpawClient:
     async def close(self):
         if self._http is not None:
             await self._http.aclose()
+        await self.bypass.close()
 
     async def _json(self, path: str):
         return await self.fetcher.fetch(f"{self.base}{path}", want_json=True)
@@ -55,17 +60,17 @@ class JapanpawClient:
 
     # ----------------------------------------------------------- búsqueda
     async def search(self, query: str) -> list[SearchResult]:
-        params = urllib.parse.urlencode({"search": query, "per_page": 20, "type": "post", "subtype": "post"})
+        params = urllib.parse.urlencode({"search": query, "per_page": self.FETCH_RESULTS,
+                                         "type": "post", "subtype": "post"})
         data = await self._json(f"/wp-json/wp/v2/search?{params}")
-        results, seen_titles = [], {}
-        for item in data or []:
-            if item.get("subtype") != "post" or not is_allowed_url(item.get("url", "")):
-                continue
-            title = htmlmod.unescape(item.get("title") or "").strip() or f"Post {item['id']}"
-            seen_titles[title] = seen_titles.get(title, 0) + 1
-            results.append(SearchResult(post_id=int(item["id"]), title=title, url=item["url"]))
-            if len(results) >= self.MAX_RESULTS:
-                break
+        found = [SearchResult(post_id=int(item["id"]), url=item["url"],
+                              title=htmlmod.unescape(item.get("title") or "").strip() or f"Post {item['id']}")
+                 for item in data or []
+                 if item.get("subtype") == "post" and is_allowed_url(item.get("url", ""))]
+        results = rank(query, found)[:self.MAX_RESULTS]
+        seen_titles: dict[str, int] = {}
+        for r in results:
+            seen_titles[r.title] = seen_titles.get(r.title, 0) + 1
         # títulos repetidos (distintas versiones): se distinguen por id
         for r in results:
             if seen_titles[r.title] > 1:

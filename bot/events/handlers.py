@@ -128,10 +128,35 @@ class JobComplete(EventHandler):
                              done=len(done), failed=len(failed), failed_html=failed_html)
 
 
+class WatchEvents:
+    """
+    Capítulos que llegan por un seguimiento semanal (webhook de change-detection
+    en Anime-Automator, job_id «watch:…»). Kuro avisa a los clientes que siguen
+    esa URL. Al miauestro no: esos avisos ya le llegan por el Telegram de
+    Anime-Automator, como siempre.
+    """
+
+    async def handle(self, k, raw: dict):
+        if raw.get("event") != "episode_done" or raw.get("kind") == "movie":
+            return
+        url = raw.get("watch_url") or ""
+        name, ep = raw.get("name") or "", int(raw.get("episode") or 0)
+        told = set()
+        for t in k.db.track_active_for_url(url):
+            if k.is_admin(t.chat_id) or t.chat_id in told:
+                continue
+            told.add(t.chat_id)
+            await k.messenger.send(t.chat_id, k.persona.say("track_ep_done", t.chat_id,
+                                                            name=name or t.title, ep=ep))
+        if told:
+            log.info("Capítulo %s de %s (seguimiento): avisados %s cliente(s)", ep, name, len(told))
+
+
 class EventRouter:
     def __init__(self, kuro):
         self.k = kuro
         self.handlers = {kind: cls(kuro) for kind, cls in _HANDLERS.items()}
+        self.watch = WatchEvents()
 
     def _parse(self, raw: dict) -> Event | None:
         try:
@@ -144,6 +169,8 @@ class EventRouter:
                      movie=raw.get("kind") == "movie" or req.movie, error=str(raw.get("error", ""))[:500])
 
     async def route(self, raw: dict):
+        if str(raw.get("job_id") or "").startswith("watch:"):
+            return await self.watch.handle(self.k, raw)
         ev = self._parse(raw)
         if ev is None:
             log.warning("Evento de una petición desconocida: %s", raw)

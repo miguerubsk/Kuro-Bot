@@ -52,3 +52,47 @@ class Request:
     movie: bool = False
     bundle_id: int = 0
     quota_exempt: bool = False
+
+
+class TrackStatus:
+    """
+    offered    Kuro lo ha ofrecido; falta que el cliente diga que sí
+    declined   el cliente no lo quiere
+    pending    esperando al admin
+    processing creándose en change-detection
+    active     vigilándose en change-detection
+    rejected   rechazado por el admin
+    ended      terminó la emisión (o se canceló): ya no se vigila
+    failed     no se pudo crear en change-detection
+    """
+    OFFERED = "offered"
+    DECLINED = "declined"
+    PENDING = "pending"
+    PROCESSING = "processing"
+    ACTIVE = "active"
+    REJECTED = "rejected"
+    ENDED = "ended"
+    FAILED = "failed"
+
+    # ocupan hueco en el límite de cada cliente
+    COUNTED = (PENDING, PROCESSING, ACTIVE)
+    # el admin puede decidir (o reintentar)
+    OPEN = (PENDING, FAILED)
+
+
+@dataclass
+class Tracking:
+    id: int
+    chat_id: int
+    user_name: str
+    post_id: int
+    title: str
+    post_url: str
+    paste_url: str
+    status: str
+    created_at: float
+    watch_uuid: str = ""
+    owned: bool = False        # el watch lo creó Kuro (se borra al acabar); si no, es de otro o manual
+    anilist_id: int = 0
+    schedule: dict | None = None
+    request_id: int = 0

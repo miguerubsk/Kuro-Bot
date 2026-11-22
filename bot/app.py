@@ -18,15 +18,18 @@ log = logging.getLogger("requester-bot")
 USER_COMMANDS = [
     BotCommand("pedir", "Pedir un anime"),
     BotCommand("cupo", "Encargos que te quedan esta semana"),
+    BotCommand("seguimientos", "Lo que vigilo cada semana"),
     BotCommand("ayuda", "Cómo funciona"),
-    BotCommand("id", "Número de este chat"),
+    BotCommand("id", "Tu código de cliente"),
 ]
 ADMIN_COMMANDS = [
     BotCommand("pedir", "Pedir un anime"),
     BotCommand("descargados", "Lo descargado, por cliente"),
     BotCommand("pendientes", "Encargos por aprobar"),
+    BotCommand("seguimientos", "Lo que se vigila cada semana"),
     BotCommand("cupo", "Encargos que te quedan esta semana"),
     BotCommand("resetcupo", "Reiniciar cupos"),
+    BotCommand("alta", "Dejar pasar a alguien por su código"),
     BotCommand("ayuda", "Cómo funciona"),
 ]
 
@@ -41,7 +44,8 @@ class KuroBot:
     async def post_init(self, application: Application):
         k = self.k
         k.messenger.attach(application.bot)
-        self._tasks = [asyncio.create_task(k.messenger.run_outbox()), asyncio.create_task(k.lonely.loop())]
+        self._tasks = [asyncio.create_task(k.messenger.run_outbox()), asyncio.create_task(k.lonely.loop()),
+                       asyncio.create_task(k.tracker.loop())]
         for req in k.db.fail_stuck_processing():
             log.warning("La petición #%s se quedó a medias al apagarse: pasa a fallida", req.id)
             await k.messenger.send(
@@ -94,6 +98,8 @@ def main():
     # httpx registra cada URL a nivel INFO, y la de Telegram contiene el token
     logging.getLogger("httpx").setLevel(logging.WARNING)
     cfg = config.load()
+    log.info("Seguimiento semanal: %s", f"change-detection en {cfg.cd_url}" if cfg.cd_url and cfg.cd_api_key
+             else "desactivado (faltan CHANGEDETECTION_URL / CHANGEDETECTION_API_KEY)")
     log.info("Arrancando Kuro (admin=%s, lista blanca=%s, palabra clave=%s, límite=%s/semana)",
              cfg.admin_chat_id, len(cfg.allowed_chat_ids), "sí" if cfg.access_keyword else "no", cfg.weekly_limit)
     KuroBot(Kuro(cfg)).build().run_polling(allowed_updates=Update.ALL_TYPES)

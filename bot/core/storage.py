@@ -6,7 +6,7 @@ import sqlite3
 import threading
 import time
 
-from .models import Request, Status
+from .models import Request, Status, Tracking, TrackStatus
 
 WEEK = 7 * 24 * 3600
 
@@ -37,6 +37,24 @@ CREATE TABLE IF NOT EXISTS kv (
     k TEXT PRIMARY KEY,
     v TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS trackings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    chat_id INTEGER NOT NULL,
+    user_name TEXT NOT NULL DEFAULT '',
+    post_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    post_url TEXT NOT NULL,
+    paste_url TEXT NOT NULL,
+    status TEXT NOT NULL,
+    created_at REAL NOT NULL,
+    decided_at REAL,
+    watch_uuid TEXT NOT NULL DEFAULT '',
+    owned INTEGER NOT NULL DEFAULT 0,
+    anilist_id INTEGER NOT NULL DEFAULT 0,
+    schedule TEXT NOT NULL DEFAULT '',
+    request_id INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_trackings_paste ON trackings(paste_url, status);
 CREATE TABLE IF NOT EXISTS chats (
     chat_id INTEGER PRIMARY KEY,
     name TEXT NOT NULL DEFAULT '',
@@ -228,6 +246,82 @@ class Storage:
             f"WHERE status IN ({_marks(Status.HISTORY)}) GROUP BY chat_id ORDER BY last DESC",
             Status.HISTORY)
         return [(r["chat_id"], r["user_name"]) for r in rows]
+
+    def served_count(self, chat_id: int) -> int:
+        """Cuántos animes distintos se le han bajado (o se le están bajando) a ese chat."""
+        r = self._first(f"SELECT COUNT(DISTINCT post_id) AS n FROM requests WHERE chat_id=? "
+                        f"AND status IN ({_marks(Status.HISTORY)})", (chat_id, *Status.HISTORY))
+        return r["n"] if r else 0
+
+    def served_titles(self, limit: int = 60) -> list[str]:
+        """Títulos de lo último que se ha bajado (de quien sea), sin repetir."""
+        rows = self._rows("SELECT title, MAX(created_at) AS last FROM requests WHERE status=? "
+                          "GROUP BY post_id ORDER BY last DESC LIMIT ?", (Status.COMPLETED, limit))
+        return [r["title"] for r in rows]
+
+    # ----------------------------------------------------- seguimientos
+    @staticmethod
+    def _tracking(r) -> Tracking | None:
+        if r is None:
+            return None
+        return Tracking(
+            id=r["id"], chat_id=r["chat_id"], user_name=r["user_name"], post_id=r["post_id"], title=r["title"],
+            post_url=r["post_url"], paste_url=r["paste_url"], status=r["status"], created_at=r["created_at"],
+            watch_uuid=r["watch_uuid"], owned=bool(r["owned"]), anilist_id=r["anilist_id"],
+            schedule=json.loads(r["schedule"]) if r["schedule"] else None, request_id=r["request_id"],
+        )
+
+    def _trackings(self, sql: str, args=()) -> list[Tracking]:
+        return [self._tracking(r) for r in self._rows(sql, args)]
+
+    def track_add(self, chat_id: int, user_name: str, post, request_id: int = 0) -> int:
+        return self._write(
+            "INSERT INTO trackings(chat_id, user_name, post_id, title, post_url, paste_url, status, created_at, "
+            "request_id) VALUES (?,?,?,?,?,?,?,?,?)",
+            (chat_id, user_name, post.post_id, post.title, post.url, post.paste_url, TrackStatus.OFFERED,
+             time.time(), request_id),
+        ).lastrowid
+
+    def track_get(self, tid: int) -> Tracking | None:
+        return self._tracking(self._first("SELECT * FROM trackings WHERE id=?", (tid,)))
+
+    def track_transition(self, tid: int, from_states: tuple[str, ...], to_state: str) -> bool:
+        cur = self._write(
+            f"UPDATE trackings SET status=?, decided_at=? WHERE id=? AND status IN ({_marks(from_states)})",
+            (to_state, time.time(), tid, *from_states))
+        return cur.rowcount == 1
+
+    def track_update(self, tid: int, **fields):
+        if "schedule" in fields:
+            fields["schedule"] = json.dumps(fields["schedule"]) if fields["schedule"] else ""
+        if "owned" in fields:
+            fields["owned"] = int(fields["owned"])
+        cols = ", ".join(f"{k}=?" for k in fields)
+        self._write(f"UPDATE trackings SET {cols} WHERE id=?", (*fields.values(), tid))
+
+    def track_live_for(self, chat_id: int, paste_url: str) -> Tracking | None:
+        """El seguimiento de ese chat para ese anime que siga en pie (ofrecido, pendiente o activo)."""
+        states = (TrackStatus.OFFERED, *TrackStatus.COUNTED)
+        return self._tracking(self._first(
+            f"SELECT * FROM trackings WHERE chat_id=? AND paste_url=? AND status IN ({_marks(states)}) "
+            f"ORDER BY id DESC LIMIT 1", (chat_id, paste_url, *states)))
+
+    def track_counted(self, chat_id: int) -> int:
+        return self._first(
+            f"SELECT COUNT(*) FROM trackings WHERE chat_id=? AND status IN ({_marks(TrackStatus.COUNTED)})",
+            (chat_id, *TrackStatus.COUNTED))[0]
+
+    def track_active_for_url(self, paste_url: str) -> list[Tracking]:
+        return self._trackings("SELECT * FROM trackings WHERE paste_url=? AND status=? ORDER BY id",
+                               (paste_url, TrackStatus.ACTIVE))
+
+    def track_list(self, chat_id: int | None = None, states: tuple[str, ...] = (TrackStatus.ACTIVE,)) -> list[Tracking]:
+        if chat_id is None:
+            return self._trackings(f"SELECT * FROM trackings WHERE status IN ({_marks(states)}) ORDER BY title, id",
+                                   states)
+        return self._trackings(
+            f"SELECT * FROM trackings WHERE chat_id=? AND status IN ({_marks(states)}) ORDER BY title, id",
+            (chat_id, *states))
 
     # ---------------------------------------------------- valores sueltos
     def kv_get(self, k: str, default=None):

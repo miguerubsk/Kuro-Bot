@@ -2,6 +2,7 @@
 Cómo se descargan las páginas de la web (patrón estrategia).
 
 - DirectFetcher: httpx con User-Agent de navegador (sin él la web bloquea).
+  Ante un bloqueo prueba otra IP (LaLiga) o el proxy (ver services/netblock).
 - BrowserFetcher: el Chrome headless de Anime-Automator (sockpuppetbrowser)
   vía Playwright/CDP, para cuando hay bloqueo anti-bot.
 - FallbackFetcher: prueba una tras otra hasta que alguna funcione.
@@ -16,6 +17,8 @@ from abc import ABC, abstractmethod
 from typing import Callable
 
 import httpx
+
+from ..netblock import NetBypass, host_of, is_cert_failure
 
 log = logging.getLogger(__name__)
 
@@ -52,18 +55,49 @@ class Fetcher(ABC):
 class DirectFetcher(Fetcher):
     ATTEMPTS = 2
 
-    def __init__(self, client: Callable[[], httpx.AsyncClient]):
+    def __init__(self, client: Callable[[], httpx.AsyncClient], bypass: NetBypass | None = None):
         self.client = client
+        self.bypass = bypass or NetBypass()
+
+    async def _get(self, url: str) -> httpx.Response:
+        host = host_of(url)
+        if self.bypass.proxied(host):
+            return await self.bypass.get_proxied(url)
+        ip = self.bypass.pinned(host)
+        try:
+            return await (self.bypass.get_pinned(self.client(), url, ip) if ip else self.client().get(url))
+        except httpx.HTTPError as ex:
+            if not is_cert_failure(ex):
+                raise
+            ip = await self.bypass.find_ip(self.client(), url)
+            if ip:
+                return await self.bypass.get_pinned(self.client(), url, ip)
+            if not self.bypass.proxy:
+                raise
+            self.bypass.use_proxy(host)
+            return await self.bypass.get_proxied(url)
+
+    @staticmethod
+    def _decode(r: httpx.Response, want_json: bool):
+        if looks_blocked(r.status_code, r.text):
+            raise Blocked(f"HTTP {r.status_code}")
+        r.raise_for_status()
+        return r.json() if want_json else r.text
 
     async def fetch(self, url: str, want_json: bool = False):
+        host = host_of(url)
         for attempt in range(1, self.ATTEMPTS + 1):
             try:
-                r = await self.client().get(url)
-                if looks_blocked(r.status_code, r.text):
-                    raise Blocked(f"HTTP {r.status_code}")
-                r.raise_for_status()
-                return r.json() if want_json else r.text
+                return self._decode(await self._get(url), want_json)
             except Blocked as ex:
+                if self.bypass.proxy and not self.bypass.proxied(host):
+                    try:
+                        data = self._decode(await self.bypass.get_proxied(url), want_json)
+                    except (Blocked, httpx.HTTPError, ValueError) as ex2:
+                        log.warning("Tampoco por el proxy (%s): %s", ex2, url)
+                    else:
+                        self.bypass.use_proxy(host)
+                        return data
                 log.warning("La web bloquea la petición directa (%s), uso el navegador: %s", ex, url)
                 raise FetchFailed(str(ex)) from ex
             except (httpx.HTTPError, ValueError) as ex:

@@ -1,4 +1,4 @@
-"""Comandos del miauestro: /pendientes, /resetcupo, /descargados (y sus botones)."""
+"""Comandos del miauestro: /pendientes, /resetcupo, /descargados, /alta (y sus botones)."""
 
 import logging
 
@@ -44,6 +44,40 @@ class ResetCupo(ChatCommand):
         n = self.k.db.reset_quota(target)
         log.info("Cupos reiniciados (%s): %s peticiones", target or "todos", n)
         await ctx.reply_key("admin_reset", n=n)
+
+
+@register
+class Alta(ChatCommand):
+    """/alta código [nombre]: dejar pasar a alguien que le ha dado su código al miauestro."""
+    names = ("alta",)
+    access = Access.ADMIN
+
+    async def execute(self, ctx):
+        policy = self.k.access
+        if not policy.can_add:
+            return await ctx.reply_key("admin_add_open")
+        try:
+            target = int(ctx.args[0])
+        except (IndexError, ValueError):
+            return await ctx.message.reply_text("Uso: /alta código [nombre]")
+        if policy.allows(target):
+            return await ctx.reply_key("admin_add_already", chat_id=target)
+        name = " ".join(ctx.args[1:]).strip() or await self._name(ctx, target)
+        policy.add(target, name)
+        log.info("Chat %s dado de alta por el admin: %s", target, name)
+        await self.k.messenger.send(target, self.k.persona.say("welcome_added", target)
+                                    + "\n\n" + self.k.texts.help(target))
+        await ctx.reply_key("admin_added", who=name, chat_id=target)
+
+    @staticmethod
+    async def _name(ctx, chat_id: int) -> str:
+        """El nombre que tenga en Telegram (si ya ha hablado con Kuro), o el propio código."""
+        try:
+            chat = await ctx.bot.get_chat(chat_id)
+        except Exception:
+            return str(chat_id)
+        name = chat.full_name or chat.title or str(chat_id)
+        return name + (f" (@{chat.username})" if chat.username else "")
 
 
 @register

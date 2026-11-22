@@ -19,7 +19,9 @@ from .orders.library import LibraryChecker
 from .orders.memo import OrderMemo
 from .persona import Persona
 from .services.automator import AutomatorClient
-from .services.japanpaw import JapanpawClient
+from .persona import lines as L
+from .services.japanpaw import JapanpawClient, clean_title
+from .tracking import Tracker
 from .ui.cards import CardDeck, CoverCache
 from .ui.history import HistoryView
 from .ui.texts import Texts
@@ -27,7 +29,8 @@ from .ui.texts import Texts
 
 class Kuro:
     def __init__(self, cfg: Settings, *, db: Storage | None = None, automator: AutomatorClient | None = None,
-                 site: JapanpawClient | None = None, persona: Persona | None = None):
+                 site: JapanpawClient | None = None, persona: Persona | None = None,
+                 tracker_parts: dict | None = None):
         self.cfg = cfg
         self.admin = cfg.admin_chat_id
 
@@ -39,7 +42,8 @@ class Kuro:
         self.messenger = Messenger(self.db)
 
         self.automator = automator or AutomatorClient(cfg.automator_url)
-        self.site = site or JapanpawClient(cfg.japanpaw_base, cfg.sockpuppet_url, cfg.force_browser)
+        self.site = site or JapanpawClient(cfg.japanpaw_base, cfg.sockpuppet_url, cfg.force_browser,
+                                             proxy=cfg.bypass_proxy)
 
         self.memo = OrderMemo()
         self.texts = Texts(self)
@@ -48,7 +52,14 @@ class Kuro:
         self.cards = CardDeck(CoverCache(self.site))
         self.history = HistoryView(self)
         self.events = EventRouter(self)
+        self.tracker = Tracker(self, **(tracker_parts or {}))
         self.lonely = Lonely(self.db, self.admin, self.messenger.send, self.persona)
+        self.persona.set_rapport(self.trust, lambda: [clean_title(t) for t in self.db.served_titles()])
+
+    def trust(self, chat_id: int) -> int:
+        """Confianza de Kuro con ese cliente: 0 (aún no se le ha bajado nada) … len(TRUST_STEPS)."""
+        served = self.db.served_count(chat_id)
+        return sum(served >= step for step in L.TRUST_STEPS)
 
     def is_admin(self, chat_id: int) -> bool:
         return chat_id == self.admin

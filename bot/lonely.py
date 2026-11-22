@@ -2,8 +2,11 @@
 Kuro echa de menos al miauestro.
 
 Si el admin pasa un tiempo sin hablarle, Kuro le escribe como si se sintiera
-abandonado, cada vez más dramático (LEVELS niveles; después se calla hasta
-que vuelva, para no dar la lata). Cuando vuelve, le recibe.
+abandonado, cada vez más dramático: mimoso, triste, ofendido, detective,
+desesperado, filosófico y despedida (un nivel por cada clave lonely_N de las
+frases: para añadir uno basta con escribir sus frases). Después se calla
+hasta que vuelva, para no dar la lata. Cuando vuelve, le recibe según lo
+dramático que se haya puesto.
 
 Para que no sea siempre igual:
 - el plazo depende de cada cuánto suele aparecer el admin (mediana de sus
@@ -17,22 +20,26 @@ Para que no sea siempre igual:
 import asyncio
 import logging
 import random
+import re
 import statistics
 import time
 from datetime import datetime
 
 from .persona import TZ
+from .persona.lines import LINES
 
 log = logging.getLogger(__name__)
 
 DAY = 24 * 3600
-LEVELS = 4
+LEVELS = len([k for k in LINES if re.fullmatch(r"lonely_\d+", k)])
+# frase de bienvenida según el último nivel al que llegó (del más alto al más bajo)
+BACK_KEYS = ((LEVELS - 1, "lonely_back_drama"), (3, "lonely_back_hurt"), (0, "lonely_back"))
 MIN_WAIT = 1 * DAY            # nunca antes de día sin hablarle
 MAX_WAIT = 30 * DAY           # ni más tarde de esto
 DEFAULT_GAP = 2 * DAY         # si aún no hay historial
 HISTORY = 30                  # ratos sin hablar que se recuerdan
 TOUCH_GRANULARITY = 3600      # varias interacciones seguidas cuentan como una
-AWAKE_HOURS = (7, 00)         # de 07:00 a 23:59
+AWAKE_HOURS = (7, 24)         # de 07:00 a 23:59 (el final no se incluye)
 CHECK_EVERY = 15 * 60
 
 K_LAST = "admin_last_seen"
@@ -66,8 +73,9 @@ class Lonely:
         if level == 1:
             wait = typical * random.uniform(2.0, 3.5)
         else:
-            # entre nivel y nivel, algo menos que la primera vez y siempre distinto
-            wait = typical * random.uniform(1.2, 2.5)
+            # entre nivel y nivel, algo menos que la primera vez, siempre distinto
+            # y un poco más espaciado según se pone dramático
+            wait = typical * random.uniform(1.2, 2.5) * (1 + 0.1 * (level - 2))
         wait = max(MIN_WAIT, min(MAX_WAIT, wait))
         return self._at_awake_hour(from_ts + wait)
 
@@ -102,9 +110,8 @@ class Lonely:
         if level:
             self.db.kv_set(K_LEVEL, 0)
             away = now - (last or now)
-            await self.send(self.admin, self.persona.say(
-                "lonely_back_hurt" if level >= 3 else "lonely_back", self.admin,
-                days=_days(away)))
+            key = next(k for threshold, k in BACK_KEYS if level >= threshold)
+            await self.send(self.admin, self.persona.say(key, self.admin, days=_days(away)))
 
     async def loop(self):
         if self.db.kv_get(K_NEXT) is None:
@@ -145,7 +152,8 @@ class Lonely:
         prev = self.db.last_request_of(self.admin)
         if prev:
             extras.append(self.persona.say("lonely_last_title", self.admin, title=prev.title))
-        if extras and random.random() < 0.7:
+        extras.append(self.persona.say("lonely_meanwhile", self.admin))
+        if random.random() < 0.7:
             text += "\n\n" + random.choice(extras)
         return text
 
