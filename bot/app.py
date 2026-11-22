@@ -17,7 +17,7 @@ log = logging.getLogger("requester-bot")
 
 USER_COMMANDS = [
     BotCommand("pedir", "Pedir un anime"),
-    BotCommand("cupo", "Encargos que te quedan esta semana"),
+    BotCommand("carros", "Carros que te quedan esta semana"),
     BotCommand("seguimientos", "Lo que vigilo cada semana"),
     BotCommand("ayuda", "Cómo funciona"),
     BotCommand("id", "Tu código de cliente"),
@@ -27,8 +27,8 @@ ADMIN_COMMANDS = [
     BotCommand("descargados", "Lo descargado, por cliente"),
     BotCommand("pendientes", "Encargos por aprobar"),
     BotCommand("seguimientos", "Lo que se vigila cada semana"),
-    BotCommand("cupo", "Encargos que te quedan esta semana"),
-    BotCommand("resetcupo", "Reiniciar cupos"),
+    BotCommand("carros", "Carros que te quedan esta semana"),
+    BotCommand("resetcupo", "Devolver los carros"),
     BotCommand("alta", "Dejar pasar a alguien por su código"),
     BotCommand("ayuda", "Cómo funciona"),
 ]

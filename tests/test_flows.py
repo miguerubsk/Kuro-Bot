@@ -363,7 +363,8 @@ class TestHistoryAndCommands(KuroTest):
 
     async def test_cupo(self):
         await self.type(Cupo, CLIENT)
-        self.assertTrue(self.bot.to(CLIENT))
+        self.assertIn("carros", self.bot.to(CLIENT)[-1].text)
+        self.assertIn("carros", Cupo.names)
 
     async def test_keyword_registration(self):
         self.make(allowed_chat_ids=frozenset(), access_keyword="gato")
@@ -397,7 +398,7 @@ class TestHistoryAndCommands(KuroTest):
     async def test_help_explains_everything(self):
         await self.type(Help, CLIENT)
         text = self.bot.to(CLIENT)[-1].text
-        for part in ("Cómo se pide", "El trato", "/cupo", "/pedir", "/id"):
+        for part in ("Cómo se pide", "El trato", "/carros", "/pedir", "/id"):
             self.assertIn(part, text)
         self.assertNotIn("/seguimientos", text)   # sin change-detection no se ofrece
         await self.type(Help, ADMIN)

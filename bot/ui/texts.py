@@ -18,7 +18,7 @@ class Texts:
         tracking = self.k.tracker.enabled
         if self.k.is_admin(chat_id):
             clients = ["/descargados — lo que ha pedido cada uno",
-                       "/resetcupo [código] — devolver los cupos (de uno o de todos)"]
+                       "/resetcupo [código] — devolver los carros (de uno o de todos)"]
             if self.k.access.can_add:
                 clients.append("/alta código [nombre] — dejar pasar a alguien por su código de cliente")
             commands = ["/pedir nombre — buscar un anime", "/pendientes — encargos por decidir"]
@@ -33,7 +33,7 @@ class Texts:
                        say("help_commands_head") + "\n" + "\n".join(commands)]
             return "\n\n".join(blocks)
 
-        commands = ["/pedir nombre — buscar un anime", "/cupo — cuántos encargos te quedan esta semana"]
+        commands = ["/pedir nombre — buscar un anime", "/carros — cuántos carros te quedan esta semana"]
         if tracking:
             commands.append("/seguimientos — lo que te vigilo cada semana (y dejar de seguirlo)")
         commands += ["/id — tu código de cliente", "/ayuda — esta ayuda"]

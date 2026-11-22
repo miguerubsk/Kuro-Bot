@@ -1,4 +1,4 @@
-"""Comandos para todos: /start, /ayuda, /id, /cupo."""
+"""Comandos para todos: /start, /ayuda, /id, /carros (o /cupo)."""
 
 import logging
 
@@ -51,7 +51,7 @@ class ChatId(ChatCommand):
 
 @register
 class Cupo(ChatCommand):
-    names = ("cupo",)
+    names = ("carros", "cupo")   # los cupos de la semana son «carros»
 
     async def execute(self, ctx):
         q = self.k.quota

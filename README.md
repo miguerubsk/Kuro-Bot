@@ -44,7 +44,7 @@ durante 6 h para ese servidor, igual que hace Anime-Automator.
 5. `docker compose up -d --build && docker compose logs -f`
 
 ## Comandos
-- Todos: `/pedir <nombre>` (o escribir el nombre en privado), `/cupo`, `/seguimientos`, `/id`, `/ayuda`.
+- Todos: `/pedir <nombre>` (o escribir el nombre en privado), `/carros` (o `/cupo`), `/seguimientos`, `/id`, `/ayuda`.
 - Admin: `/pendientes`, `/resetcupo [chat]`, `/descargados` (lo bajado por cada cliente),
   `/alta código [nombre]` (dejar pasar a alguien por su código).
 

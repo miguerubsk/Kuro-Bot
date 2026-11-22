@@ -5,15 +5,19 @@ Ficha de personajes: persona/ficha.md (Kuro y el cazador, el miauestro).
 Es el canon: cualquier frase que cuente algo del pasado tiene que encajar
 con ella. En corto:
 
-- Kuro: gato negro, felyne camarada del miauestro desde Freedom Unite (Aldea
-  Pokke). Volvió con él en Rise/Sunbreak (Kamura y, sobre todo, Elgado).
-  Retirados, ahora trapichea con anime desde el callejón. Habla con «nya» y
-  juegos gatunos («miauestro», «en un santiamiau»), pícaro pero honrado
-  («palabra de felyne»), leal hasta los bigotes y nocturno.
-- El miauestro (el admin): su cazador. Maestro del hacha cargada (SAED, un
-  set por elemento y otro de bruto), la espada larga, el cuerno de caza
-  (bufos, tanque) y la ballesta pesada (escudo acoplado, corta distancia a
-  quemarropa); prodigio de apoyo con espada y escudo. Cazaba con un grupo.
+- Kuro: gato negro, felyne del miauestro desde Freedom Unite (Aldea Pokke)
+  y en todos los juegos después. Casas: Pokke y Elgado; luego Astera y
+  Seliana, luego Bherna, y el resto (Wilds incluido) de pasada. Retirados,
+  ahora trapichea con anime desde el callejón. Habla con «nya» y juegos
+  gatunos, pícaro pero honrado («palabra de felyne») y nocturno. Admira
+  muchísimo a su cazador y está orgullosísimo de él: presume de él ante
+  los clientes y le recuerda sus hazañas con brillo en los ojos.
+- El miauestro (el admin): su cazador. Su arma principal, desde que
+  existe, es el hacha cargada (SAED de daño masivo, un set por elemento y
+  otro de bruto, contraataques: puntos de guardia y guardia ofensiva).
+  También espada larga, cuerno de caza (bufos, tanque) y ballesta pesada
+  (escudo acoplado, corta distancia a quemarropa, una apisonadora en
+  Sunbreak); prodigio de apoyo con espada y escudo. Cazaba con un grupo.
 - No metas más de una o dos referencias por frase y rota el repertorio de
   la ficha.
 
@@ -98,11 +102,13 @@ LINES: dict[str, list[str]] = {
         "🐈‍⬛ ¡{Voc}, ha vuelto mi cazador! Te he calentado el teclado durmiendo encima, como hacía con "
         "tu cama en Pokke.",
         "🐈‍⬛ Como en Elgado, {voc}: tú señalas la presa en el tablón y Kuro la trae entre los dientes.",
-        "🐈‍⬛ Kuro, camarada felyne retirado y contrabandista en activo, {voc}. Tú tumbabas Rajangs; yo "
-        "ahora tumbo servidores de {site}.",
+        "🐈‍⬛ El mejor cazador que ha pisado Pokke, Astera y Elgado, en mi chat. Kuro no se acostumbra, "
+        "{voc}. ¿Qué cazamos?",
         "🐈‍⬛ ¿Misión nueva, {voc}? Firmas el encargo y Kuro sale del campamento. Hoy sin hacha cargada, "
         "que para esto basta con mis zarpas.",
-        "🐈‍⬛ Zarpas limpias, bigotes peinados y cuatro vidas de las siete. ¿Qué cazamos hoy, {voc}?",
+        "🐈‍⬛ Zarpas limpias, bigotes peinados y cuatro vidas de las siete, todas a tu servicio, {voc}.",
+        "🐈‍⬛ A tus órdenes, {voc}. Si sigo vivo es porque siempre ibas tú delante, con el escudo. "
+        "¿Qué te traigo?",
     ],
     "help_intro_client": [
         "🐈‍⬛ Bienvenido, {voc}. Soy <b>Kuro</b>: fui el felyne camarada del miauestro en sus años de "
@@ -119,6 +125,8 @@ LINES: dict[str, list[str]] = {
         "cuantas vidas de menos y una mochila, que ahora va llena de anime.",
         "🐈‍⬛ Me ha dicho Bigotes, el del puerto, que venías. Soy <b>Kuro</b>, {voc}: el felyne que "
         "cazaba con el miauestro. Mismo olfato, menos fuego.",
+        "🐈‍⬛ Bienvenido, {voc}. Soy <b>Kuro</b>, y fui el felyne del miauestro, el mejor cazador de "
+        "hacha cargada que verás nunca. Ahora él aprueba y yo traigo el anime de {site}.",
     ],
     # Secciones de /ayuda (las junta ui/texts.py)
     "help_how": [
@@ -127,22 +135,22 @@ LINES: dict[str, list[str]] = {
         "Mejor como lo llaman allí, en romaji: <code>{example}</code>.\n"
         "2️⃣ Te enseño lo que encuentre en fichas: pásalas con ◀️ ▶️ y pulsa la buena. Si tiene varias "
         "temporadas, puedes pedir una o todas de golpe.\n"
-        "3️⃣ Miro el almacén: lo que ya tengamos no se vuelve a bajar, y si ya está entero no te gasta cupo.\n"
+        "3️⃣ Miro el almacén: lo que ya tengamos no se vuelve a bajar, y si ya está entero no te gasta carro.\n"
         "4️⃣ El miauestro da el visto bueno y salgo de caza. Te aviso de cada capítulo que llegue y "
         "de cuándo está todo.",
     ],
     "help_how_boss": [
         "<b>🐾 Encargos</b>\n"
         "Escríbeme un nombre (o <code>/pedir nombre</code>), eliges en las fichas y lo tuyo sale al momento, "
-        "sin cupo ni esperas.\n"
+        "sin contar carros ni esperar.\n"
         "Lo de los clientes te llega con ✅ / ❌ para que decidas; lo que quede sin decidir está en /pendientes. "
         "Yo les voy contando cómo va cada capítulo.",
     ],
     "help_track": [
         "<b>📡 Animes en emisión</b>\n"
         "Si lo que pides aún se está emitiendo, te pregunto si quieres que lo vigile. Si dices que sí y el "
-        "miauestro lo aprueba, cada semana, el día que sale capítulo, lo bajo y te aviso. No gasta cupo de "
-        "encargos, pero puedes vigilar <b>{limit}</b> a la vez como mucho. En /seguimientos los ves y dejas "
+        "miauestro lo aprueba, cada semana, el día que sale capítulo, lo bajo y te aviso. No gasta "
+        "carros, pero puedes vigilar <b>{limit}</b> a la vez como mucho. En /seguimientos los ves y dejas "
         "de seguir los que quieras.",
     ],
     "help_track_boss": [
@@ -157,21 +165,24 @@ LINES: dict[str, list[str]] = {
     "help_admin": [
         "Contigo no hay cuentas, {voc}: sin límites y sin esperar a nadie, nya.",
         "Para ti la casa es libre, {voc}. Pide lo que quieras, que yo no llevo la cuenta, nya.",
-        "Tú eres quien me llena el cuenco, {voc}: sin cupo y sin preguntas.",
+        "Tú eres quien me llena el cuenco, {voc}: sin contar carros y sin preguntas.",
         "Las normas son para los clientes, {voc}. Tú pides y Kuro sale; eso es todo.",
         "Contigo, barra libre, {voc}. Como en el campamento: el cazador manda y el felyne obedece.",
     ],
     "help_user": [
-        "Normas de la casa, {voc}: <b>{limit} encargos por semana</b>, y el miauestro revisa cada uno "
-        "antes de que salga. Lo que no se consigue no se cobra, palabra de felyne.",
-        "Te lo digo clarito, {voc}: <b>{limit} encargos a la semana</b>, todos con el visto bueno del "
-        "miauestro. Si un encargo sale mal, no te lo cobro, nya.",
-        "El trato es sencillo, {voc}: <b>{limit} encargos por semana</b>, el miauestro da el visto bueno "
-        "y Kuro hace el resto. Si algo falla, no gasta cupo.",
-        "Cuentas claras, {voc}: <b>{limit} encargos cada semana</b>. El miauestro mira cada uno y lo "
-        "que ya tengamos en el almacén no se cobra. Lo que falle, tampoco.",
-        "Aquí se trabaja así, {voc}: me pides, el miauestro dice sí o no, y yo salgo de caza. "
-        "<b>{limit} por semana</b>, y si vuelvo con las zarpas vacías no cuenta.",
+        "Normas de la casa, {voc}: tienes <b>{limit} carros por semana</b>, y cada encargo sale en uno. "
+        "El miauestro revisa cada encargo antes de que salga. Lo que no se consigue no gasta carro, "
+        "palabra de felyne.",
+        "Te lo digo clarito, {voc}: como en las misiones, <b>{limit} carros a la semana</b>. Cada encargo "
+        "gasta uno, todos con el visto bueno del miauestro. Si un encargo sale mal, el carro vuelve.",
+        "El trato es sencillo, {voc}: <b>{limit} carros por semana</b>, un encargo por carro. El miauestro "
+        "da el visto bueno y Kuro hace el resto. Si algo falla, no se gasta.",
+        "Cuentas claras, {voc}: <b>{limit} carros cada semana</b>. El miauestro mira cada encargo, y lo "
+        "que ya tengamos en el almacén no gasta carro. Lo que falle, tampoco.",
+        "Aquí se trabaja así, {voc}: me pides, el miauestro dice sí o no, y yo salgo de caza. Tienes "
+        "<b>{limit} carros por semana</b>, y si vuelvo con las zarpas vacías, el carro no cuenta.",
+        "Como en el gremio, {voc}: <b>{limit} carros y fuera</b>, pero cada semana. Un encargo, un carro; "
+        "todas las temporadas de golpe, también uno. Lo que falle no gasta.",
     ],
     "open_warning": [
         "⚠️ Ojo, {voc}: este es un negocio privado. Cada encargo lo mira el miauestro con lupa y puede "
@@ -382,23 +393,23 @@ LINES: dict[str, list[str]] = {
     ],
     "library_complete": [
         "😸 ¡Buenas noticias, {voc}! <b>{title}</b> ya está entero en el almacén ({have} capítulos). "
-        "No hace falta encargo y tu cupo sigue intacto, nya.",
+        "No hace falta encargo y tus carros siguen intactos, nya.",
         "😸 Fufufu, <b>{title}</b> ya duerme en nuestras estanterías, {voc}: {have} capítulos, "
-        "todos en su sitio. Esto no gasta cupo.",
+        "todos en su sitio. Esto no gasta carro.",
         "😸 No hace falta salir de caza, {voc}: <b>{title}</b> ya está completito en el almacén "
-        "({have} capítulos). Tu cupo, sin tocar.",
+        "({have} capítulos). Tus carros, sin tocar.",
         "😸 Ya lo tenemos, {voc}: <b>{title}</b>, {have} capítulos. Te ahorras el encargo y yo el paseo.",
     ],
     "library_movie": [
-        "😸 La película <b>{title}</b> ya está en el almacén, {voc}. No hace falta encargo y tu "
-        "cupo sigue intacto, nya.",
-        "😸 <b>{title}</b> ya está en la estantería de pelis, {voc}. Esto no gasta cupo.",
+        "😸 La película <b>{title}</b> ya está en el almacén, {voc}. No hace falta encargo y tus "
+        "carros siguen intactos, nya.",
+        "😸 <b>{title}</b> ya está en la estantería de pelis, {voc}. Esto no gasta carro.",
         "😸 <b>{title}</b> ya la tenemos, {voc}. Palomitas sí; encargo no hace falta.",
     ],
     "library_busy": [
         "😸 Lo que falta de <b>{title}</b> ya viene de camino por otro encargo, {voc}. "
-        "No hace falta pedirlo otra vez, y tu cupo sigue intacto.",
-        "😸 Otro gato ya va a por <b>{title}</b>, {voc}. Llegará solo; esto no gasta cupo, nya.",
+        "No hace falta pedirlo otra vez, y tus carros siguen intactos.",
+        "😸 Otro gato ya va a por <b>{title}</b>, {voc}. Llegará solo; esto no gasta carro, nya.",
         "😸 <b>{title}</b> ya viene en el carro, {voc}. Llegará sin que gastes nada.",
     ],
     # se añade a "sent_to_admin" cuando ya hay parte en la biblioteca
@@ -411,9 +422,9 @@ LINES: dict[str, list[str]] = {
     ],
     # se añade a "sent_to_admin" cuando lo que falta ya está, pero en peor calidad
     "library_upgrade": [
-        "\n📀 Ya lo tenemos, pero en peor calidad: Kuro lo cambia por el bueno y esto <b>no gasta cupo</b>.",
-        "\n📀 En el almacén está en una versión pochita; la cambio por la buena sin cobrarte cupo, nya.",
-        "\n📀 Lo que hay está más rayado que mi poste de arañar: lo cambio por el bueno y <b>no gasta cupo</b>.",
+        "\n📀 Ya lo tenemos, pero en peor calidad: Kuro lo cambia por el bueno y esto <b>no gasta carro</b>.",
+        "\n📀 En el almacén está en una versión pochita; la cambio por la buena sin gastarte carro, nya.",
+        "\n📀 Lo que hay está más rayado que mi poste de arañar: lo cambio por el bueno y <b>no gasta carro</b>.",
     ],
     # ------------------------------------------------- todas las temporadas
     "pick_seasons": [
@@ -428,17 +439,17 @@ LINES: dict[str, list[str]] = {
     ],
     "bundle_all_have": [
         "😸 Todas las temporadas de <b>{title}</b> ya están en el almacén, {voc}. No hace falta encargo "
-        "y tu cupo sigue intacto.",
-        "😸 Nada que cazar: <b>{title}</b> ya está entero, todas sus temporadas. Tu cupo, intacto, nya.",
+        "y tus carros siguen intactos.",
+        "😸 Nada que cazar: <b>{title}</b> ya está entero, todas sus temporadas. Tus carros, intactos, nya.",
         "😸 <b>{title}</b>, de la primera temporada a la última, ya está aquí, {voc}. No gastas nada.",
     ],
     "bundle_sent": [
-        "📨 ¡Lote apuntado, {voc}! <b>{title}</b>: {items_html}\nCuenta como <b>un solo encargo</b>. "
-        "Se lo paso al miauestro y te aviso, nya.\nTe quedan {left} de {limit} esta semana.",
-        "📨 Todo al saco: <b>{title}</b> ({items_html}). Un encargo nada más, palabra de felyne. "
-        "Ahora decide el miauestro.\nTe quedan {left} de {limit} esta semana.",
-        "📨 Lote de <b>{title}</b> ({items_html}) en el buzón del miauestro, {voc}. Cuenta como uno.\n"
-        "Te quedan {left} de {limit} esta semana.",
+        "📨 ¡Lote apuntado, {voc}! <b>{title}</b>: {items_html}\nVa en <b>un solo carro</b>. "
+        "Se lo paso al miauestro y te aviso, nya.\nTe quedan {left} de {limit} carros esta semana.",
+        "📨 Todo al saco: <b>{title}</b> ({items_html}). Un solo carro, palabra de felyne. "
+        "Ahora decide el miauestro.\nTe quedan {left} de {limit} carros esta semana.",
+        "📨 Lote de <b>{title}</b> ({items_html}) en el buzón del miauestro, {voc}. Va en un solo carro.\n"
+        "Te quedan {left} de {limit} carros esta semana.",
     ],
     "bundle_skipped": [
         "\n😸 Ya en el almacén (no se piden): {items_html}.",
@@ -446,13 +457,13 @@ LINES: dict[str, list[str]] = {
         "\n😸 Fuera del lote, que ya están aquí: {items_html}.",
     ],
     "bundle_rejected": [
-        "❌ El miauestro ha dicho que no al lote de <b>{title}</b>, {voc}. No gasta cupo, nya.",
-        "❌ Lote de <b>{title}</b> denegado. Tranquilo, {voc}, tu cupo sigue intacto.",
+        "❌ El miauestro ha dicho que no al lote de <b>{title}</b>, {voc}. No gasta carro, nya.",
+        "❌ Lote de <b>{title}</b> denegado. Tranquilo, {voc}, tus carros siguen intactos.",
         "❌ Esta vez no, {voc}: el miauestro rechaza el lote de <b>{title}</b>. No te cuesta nada.",
     ],
     "admin_bundle_request": [
-        "📨 {Voc}, <b>{who}</b> quiere <b>todas las temporadas</b> (lote #{bundle}, cuenta como un encargo):",
-        "📨 Encargo gordo, {voc}: <b>{who}</b> se lleva el lote completo (#{bundle}, un solo cupo):",
+        "📨 {Voc}, <b>{who}</b> quiere <b>todas las temporadas</b> (lote #{bundle}, va en un solo carro):",
+        "📨 Encargo gordo, {voc}: <b>{who}</b> se lleva el lote completo (#{bundle}, un solo carro):",
         "📨 {Voc}, <b>{who}</b> quiere la serie entera de una tacada (lote #{bundle}):",
     ],
     "already_pending": [
@@ -463,45 +474,47 @@ LINES: dict[str, list[str]] = {
     ],
     # ------------------------------------------------------------- cupo
     "no_quota": [
-        "⛔ Ya te has llevado tus {limit} encargos de esta semana, {voc}.{when_html}",
-        "⛔ Se acabó el crédito, {voc}: {limit} encargos por semana y ya los tienes. Nya.{when_html}",
-        "⛔ La libreta está llena, {voc}: ya van {limit} encargos esta semana.{when_html}",
-        "⛔ Ni un encargo más, {voc}, que el miauestro me deja sin sardinas. Ya llevas {limit} esta semana.{when_html}",
-        "⛔ Hasta los gatos descansamos, {voc}: {limit} encargos esta semana, y ya están.{when_html}",
+        "⛔ Tres carros y fuera, {voc}… bueno, {limit}: ya los has gastado todos esta semana.{when_html}",
+        "⛔ No te quedan carros, {voc}: {limit} por semana y ya han salido todos. Nya.{when_html}",
+        "⛔ Los {limit} carros de la semana están en el camino, {voc}. Hay que esperar a que vuelvan.{when_html}",
+        "⛔ Ni un carro más, {voc}, que el miauestro me deja sin sardinas. Ya llevas {limit} esta semana.{when_html}",
+        "⛔ Misión fallida, {voc}: {limit} carros esta semana, y ya han salido todos.{when_html}",
     ],
     "no_quota_when": [
         " Vuelve el {date}.",
         " Tendrás hueco el {date}, nya.",
         " Te espero el {date} en la esquina de siempre.",
-        " El {date} vuelve a haber sitio en el saco.",
+        " El {date} vuelve a haber carro, nya.",
     ],
     "quota_left": [
-        "Te quedan <b>{left}</b> de {limit} encargos esta semana, {voc}.",
-        "Cuenta de la semana, {voc}: <b>{left}</b> de {limit} encargos disponibles, nya.",
-        "Según mi libreta de garra, {voc}, te quedan <b>{left}</b> de {limit} esta semana.",
-        "Puedes pedirme <b>{left}</b> más esta semana, {voc} (de {limit}).",
+        "Te quedan <b>{left}</b> de {limit} carros esta semana, {voc}.",
+        "Cuenta de la semana, {voc}: <b>{left}</b> de {limit} carros listos para salir, nya.",
+        "Según mi libreta de garra, {voc}, te quedan <b>{left}</b> carros de {limit} esta semana.",
+        "Puedes gastar <b>{left}</b> carros más esta semana, {voc} (de {limit}).",
+        "En el establo hay <b>{left}</b> de tus {limit} carros, {voc}. Úsalos bien.",
     ],
     "quota_admin": [
         "♾️ ¿Límite? ¿Para ti, {voc}? Nyaaa, ni hablar.",
         "♾️ Tú no tienes límite, {voc}. Pide sin miedo.",
         "♾️ ¿Contarte los encargos a ti, {voc}? Kuro no está tan loco, nya.",
-        "♾️ Tu cupo es como mis siestas, {voc}: infinito.",
+        "♾️ Tus carros son como mis siestas, {voc}: infinitos.",
+        "♾️ ¿Carros, tú? El cazador que nunca se rindió por tres carros no necesita contarlos, {voc}.",
     ],
     # ---------------------------------------------------------- petición
     "sent_to_admin": [
         "📨 Encargo de <b>{title}</b>{label} apuntado, {voc}. Se lo paso al miauestro y te aviso cuando "
-        "diga algo, nya.\nTe quedan {left} de {limit} esta semana.",
+        "diga algo, nya.\nTe quedan {left} de {limit} carros esta semana.",
         "📨 ¡Apuntado en mi libreta de garra! <b>{title}</b>{label}. Ahora decide el miauestro; "
-        "ya te contaré, {voc}.\nTe quedan {left} de {limit} esta semana.",
+        "ya te contaré, {voc}.\nTe quedan {left} de {limit} carros esta semana.",
         "📨 <b>{title}</b>{label}: encargo en el buzón del miauestro, {voc}. En cuanto mueva un bigote, "
-        "te aviso.\nTe quedan {left} de {limit} esta semana.",
+        "te aviso.\nTe quedan {left} de {limit} carros esta semana.",
         "📨 Le llevo <b>{title}</b>{label} al miauestro en la boca, como un ratón de regalo. Te aviso, {voc}.\n"
-        "Te quedan {left} de {limit} esta semana.",
+        "Te quedan {left} de {limit} carros esta semana.",
     ],
     "admin_unreachable": [
-        "⚠️ No consigo localizar al miauestro, {voc}. Prueba más tarde (no te lo cuento como encargo).",
-        "⚠️ El miauestro no contesta, {voc}. Vuelve luego, que esto no te gasta cupo, nya.",
-        "⚠️ He llamado a la puerta del miauestro y nada, {voc}. Prueba luego; no te cuesta cupo.",
+        "⚠️ No consigo localizar al miauestro, {voc}. Prueba más tarde (no te gasta carro).",
+        "⚠️ El miauestro no contesta, {voc}. Vuelve luego, que esto no te gasta carro, nya.",
+        "⚠️ He llamado a la puerta del miauestro y nada, {voc}. Prueba luego; no te cuesta carro.",
     ],
     "sending": [
         "📤 Llevando el encargo de <b>{title}</b>{label} al almacén… nya.",
@@ -541,8 +554,8 @@ LINES: dict[str, list[str]] = {
     ],
     "rejected": [
         "❌ El miauestro ha dicho que no a <b>{title}</b>, {voc}. No te lo cuento como encargo, nya.",
-        "❌ <b>{title}</b>: denegado por el miauestro. Tranquilo, {voc}, no gasta cupo.",
-        "❌ Mala suerte, {voc}: el miauestro no quiere <b>{title}</b>. Tu cupo sigue intacto, nya.",
+        "❌ <b>{title}</b>: denegado por el miauestro. Tranquilo, {voc}, no gasta carro.",
+        "❌ Mala suerte, {voc}: el miauestro no quiere <b>{title}</b>. Tus carros siguen intactos, nya.",
         "❌ El miauestro ha arrugado el bigote con <b>{title}</b>, {voc}. Esta vez no; no te cuesta nada.",
     ],
     "nothing_new": [
@@ -557,9 +570,9 @@ LINES: dict[str, list[str]] = {
         "😸 <b>{title}</b> ya viene en el carro por otro encargo, {voc}. Gratis.",
     ],
     "tech_failure": [
-        "⚠️ ¡Gatástrofe técnica con <b>{title}</b>! Habrá que echarle un ojo; de momento no gasta cupo, {voc}.",
+        "⚠️ ¡Gatástrofe técnica con <b>{title}</b>! Habrá que echarle un ojo; de momento no gasta carro, {voc}.",
         "⚠️ Se me ha enredado el ovillo con <b>{title}</b>, {voc}. Toca revisarlo; no te cuenta como encargo.",
-        "⚠️ <b>{title}</b> ha hecho saltar un barril bomba en el almacén, {voc}. Hay que revisarlo; no te cuesta cupo.",
+        "⚠️ <b>{title}</b> ha hecho saltar un barril bomba en el almacén, {voc}. Hay que revisarlo; no te cuesta carro.",
     ],
     "airing": [
         "📺 Está <b>en emisión</b>{progress}: te traigo lo que ya ha salido. Lo nuevo no llega solo, "
@@ -616,11 +629,11 @@ LINES: dict[str, list[str]] = {
         "🏁 <b>{name}</b>: {done} capítulo(s) traídos, {voc}. Se me resistieron {failed} ({failed_ranges}).",
     ],
     "job_failed": [
-        "😿 No he conseguido ni un capítulo de <b>{name}</b>, {voc}. Este encargo no te cuenta "
-        "para el cupo, nya.",
+        "😿 No he conseguido ni un capítulo de <b>{name}</b>, {voc}. Este encargo no te gasta "
+        "carro, nya.",
         "😿 Vuelvo con las zarpas vacías: ni un capítulo de <b>{name}</b>, {voc}. No te lo cobro, "
         "palabra de felyne.",
-        "😿 <b>{name}</b> me ha ganado esta vez, {voc}: ni un capítulo. No te cuesta cupo.",
+        "😿 <b>{name}</b> me ha ganado esta vez, {voc}: ni un capítulo. No te gasta carro.",
     ],
     "movie_done": [
         "🎬 ¡<b>{name}</b> ya está en su sitio, {voc}! A disfrutar, nya~",
@@ -634,9 +647,9 @@ LINES: dict[str, list[str]] = {
         "⏳ <b>{name}</b> se ha escondido en el transportín y no sale, {voc}. Pruebo otra vez en {delay}.",
     ],
     "movie_failed": [
-        "😿 No he podido traer <b>{name}</b>, {voc}. No te cuenta para el cupo, nya.",
+        "😿 No he podido traer <b>{name}</b>, {voc}. No te gasta carro, nya.",
         "😿 <b>{name}</b> se me ha escapado, {voc}. No te la cobro, palabra de felyne.",
-        "😿 <b>{name}</b> no ha querido venir, {voc}. Esto no te cuesta cupo.",
+        "😿 <b>{name}</b> no ha querido venir, {voc}. Esto no te cuesta carro.",
     ],
     "movie_already": [
         "😸 La película <b>{title}</b> ya está en la colección, {voc}. No te lo cobro.",
@@ -694,9 +707,9 @@ LINES: dict[str, list[str]] = {
         "🏁 {Voc}, cerrado el #{req_id} de {who}: <b>{name}</b> — {done} ok, {failed} fallidos{failed_html}.",
     ],
     "admin_reset": [
-        "🧹 Cupos a cero, {voc}. {n} encargos dejan de contar. Borrón y cuenta nueva, nya.",
-        "🧹 Hecho, {voc}: arranco la página de la libreta. {n} encargos dejan de contar.",
-        "🧹 Barrido, {voc}: {n} encargos fuera de la cuenta. Como si nada.",
+        "🧹 Carros devueltos al establo, {voc}. {n} encargos dejan de contar. Borrón y cuenta nueva, nya.",
+        "🧹 Hecho, {voc}: arranco la página de la libreta. {n} encargos dejan de gastar carro.",
+        "🧹 Barrido, {voc}: {n} encargos fuera de la cuenta. Carros como nuevos.",
     ],
     "admin_rejected": [
         "❌ <b>Rechazada.</b> Le he dado con la puerta en los bigotes.",
@@ -878,7 +891,7 @@ LINES: dict[str, list[str]] = {
         "😭 {Voc}, me he comido el yogur que dejaste en la nevera. Llevaba {days} ahí, igual que tu ausencia. Estaba malo. Como yo.",
         "😭 He empezado a hablar con la aspiradora, {voc}. Ya ves lo desesperado que estoy. {days}.",
         "😭 {days} sin ti, {voc}. He gastado una de mis vidas en echarte de menos. Ya solo me quedan tres. Y bajando.",
-        "😭 El pepino de la cocina me ha mirado mal, {voc}, y no estabas para protegerme. {days} ya.",
+        "😭 El bote de pepinillos de la nevera me ha mirado mal, {voc}, y no estabas para protegerme. {days} ya.",
         "😭 He maullado a la luna, a la farola y al microondas, {voc}. Ninguno eras tú. {days}.",
     ],
     "lonely_6": [
@@ -968,7 +981,7 @@ NIGHT_LINES: dict[str, list[str]] = {
     "admin_no_pending": ["Nada pendiente, {voc}. Me voy a maullarle a la luna. 🌙"],
     "ep_done": ["🌙 <b>{name}</b> {ep:02d}, cazado a la luz de la luna ({n}/{total})."],
     "job_done_all": ["🌙 <b>{name}</b> completo, {voc}: {done} capítulo(s). La noche ha sido buena."],
-    "quota_left": ["De madrugada y contando cupos, {voc}: te quedan <b>{left}</b> de {limit}."],
+    "quota_left": ["De madrugada y contando carros, {voc}: te quedan <b>{left}</b> de {limit}."],
 }
 
 # Gestos que Kuro añade de vez en cuando al final de algunos mensajes.
@@ -1024,17 +1037,19 @@ TRUST_STEPS = (1, 3, 7)
 LORE_CHANCE = (0.12, 0.2, 0.28)
 BATTLE_CHANCE = 0.2
 LORE: list[list[str]] = [
-    [   # 1: un cliente que ya ha vuelto alguna vez (pinceladas)
+    [   # 1: un cliente que ya ha vuelto alguna vez (pinceladas, y presumir del miauestro)
         "Por cierto, {voc}: no siempre viví en este callejón. Antes dormía junto a la chimenea de una "
         "casa en la Aldea Pokke, entre barriles bomba y olor a carne asada.",
-        "¿Sabías que fui el felyne camarada del miauestro, {voc}? Yo le pasaba pociones y él tumbaba "
-        "monstruos del tamaño de este edificio.",
+        "¿Sabías que fui el felyne del miauestro, {voc}? Yo le pasaba pociones y él tumbaba monstruos "
+        "del tamaño de este edificio. Lo de los monstruos se le daba mejor, la verdad.",
         "En el gremio me llamaban «la Sombra», {voc}. Por lo negro, no por lo sigiloso. Lo de sigiloso "
         "vino después, a fuerza de esquivar colas.",
         "Lo de «miauestro» viene de Pokke, {voc}. Le llamaba «maestro» porque no había arma que se le "
         "resistiera, y con mi acento salió así. Le gustó.",
+        "Que el miauestro apruebe tu encargo es un honor, {voc}. Ese cazador ha dicho «sí» a cacerías "
+        "que hacían temblar a gremios enteros.",
         "En mis tiempos, {voc}, los felynes estábamos rotos: yo aturdía monstruos a porrazos en la cabeza. "
-        "Ahora los camaradas son más… decorativos.",
+        "Ahora los compañeros son más… decorativos.",
         "Lo de «nya» se me pegó en la cocina felyne de Pokke, {voc}. Allí todos hablábamos así, y ya no "
         "hay quien me lo quite.",
         "El frío no me asusta, {voc}: me crié en las Montañas Nevadas. Sin bebida caliente no se subía "
@@ -1046,24 +1061,42 @@ LORE: list[list[str]] = [
         "Estuve en Moga una temporada, {voc}. Demasiado sol para un gato negro. Yo soy de nieve: de Pokke.",
         "En Kamura hacían el mejor dango del mundo, {voc}. Un canyne llamado Mochi me robaba la mitad. "
         "Todavía no se lo he perdonado.",
+        "Si alguna vez oyes una música dramática y caen bombas del cielo, {voc}, no es el fin del mundo: "
+        "es un Bazelgeuse. En Astera se colaba en todas las cacerías. En todas.",
+        "En Seliana había aguas termales, {voc}. Ahí me bañaba encantado. No es lo mismo que una bañera. "
+        "No preguntes por la bañera.",
+        "No me ofrezcas pepinillos, {voc}. Es una larga historia con un Deviljho. Otro día.",
     ],
-    [   # 2: cliente de confianza (las cacerías)
-        "Te lo cuento porque ya eres de la casa, {voc}: el miauestro dominaba el hacha cargada como nadie. "
-        "Cargaba los viales, ¡clac!, a hacha y ¡BUM!: una SAED entera en la cara del monstruo. Tenía un "
-        "set para cada elemento, y otro para pegar en bruto.",
+    [   # 2: cliente de confianza (las cacerías y el miauestro en acción)
+        "Te lo cuento porque ya eres de la casa, {voc}: el hacha cargada es el arma del miauestro. "
+        "Cargaba los viales, escudo en rojo, ¡clac!, a hacha y ¡BUM!: una SAED entera en la cara del "
+        "monstruo. Desde que existe esa arma, no la ha soltado.",
+        "¿Sabes lo que es una SAED bien metida, {voc}? Al monstruo se le iba media vida de golpe. Los del "
+        "grupo gritaban «¡ahí va otra!» y yo ya ni miraba: sabía cómo acababa.",
+        "El miauestro tenía un set de hacha cargada para cada elemento, {voc}: fuego, agua, rayo, hielo y "
+        "dragón. Y otro para pegar en bruto, con viales de impacto que dejaban al monstruo viendo "
+        "pajaritos. Yo le llevaba la cuenta. Con orgullo.",
+        "Lo más bonito del miauestro con el hacha cargada era esperar, {voc}. El monstruo atacaba, él "
+        "bloqueaba en el momento justo y, antes de que se diera cuenta, le caía la SAED. Castigaba cada "
+        "golpe.",
         "Con la ballesta pesada, el miauestro era un muro, {voc}. Escudo acoplado, plantado delante del "
         "monstruo y disparando a quemarropa. Los demás se escondían detrás de él. Yo también.",
+        "En Sunbreak, la ballesta pesada del miauestro era una apisonadora, {voc}. Dispersión a quemarropa "
+        "y el monstruo se deshacía. Ni el hacha cargada le hacía sombra. Bueno, casi.",
         "Cuando el miauestro tocaba el cuerno de caza, {voc}, el grupo pegaba más fuerte, aguantaba más y "
         "ni oía los rugidos. Y él encajaba golpes que a otro lo habrían mandado al carro.",
         "Con espada y escudo, el miauestro era el ángel del grupo, {voc}: nadie pasaba más de un suspiro "
         "con poca vida ni envenenado. Polvo de vida, antídotos, pociones… y yo ayudando. Nuestro estilo.",
         "En Freedom Unite le corté la cola a un Rathalos plateado, {voc}. Yo solito, con mi arma de "
-        "felyne. El miauestro todavía la tiene colgada en casa. Bueno, una cola parecida.",
+        "felyne. El miauestro dice que fue su espada larga. Kuro sabe lo que vio.",
         "La primera vida la perdí en el volcán, {voc}: un Akantor, un rugido, la lava… y Kuro volviendo "
         "en el carro, chamuscado y orgulloso. Volvimos al día siguiente y lo tumbamos.",
-        "La segunda vida me la quitó una bañera, {voc}. No preguntes. Kuro no habla de la bañera.",
-        "¿Que por qué anime, {voc}? En las noches de Pokke, junto a la chimenea, alguien ponía capítulos "
-        "en un pergamino mágico. Me aficioné. Y aquí estamos.",
+        "En Astera, {voc}, daba igual lo que fueras a cazar: a mitad de pelea sonaba la música, caían "
+        "bombas del cielo y aparecía el Bazelgeuse. El invitado que nadie invitaba. Siempre.",
+        "En Bherna los felynes podíamos cazar solos, {voc}: el modo felyne. Mi época de protagonista. El "
+        "miauestro me miraba desde el campamento, por fin al revés.",
+        "La primera vez que vimos un Valstrax fue en Bherna, {voc}. Algo cayó del cielo como un cometa. El "
+        "miauestro sacó el hacha cargada sin pestañear. Yo pestañeé por los dos.",
         "En las cacerías de grupo de Freedom Unite, a los felynes nos dejaban en casa, {voc}. Yo esperaba "
         "en la puerta y, cuando volvían, exigía que me lo contaran todo. Con detalles.",
         "En los Desbocamientos de Kamura, {voc}, el miauestro se plantaba en la puerta con la ballesta "
@@ -1072,8 +1105,6 @@ LORE: list[list[str]] = [
         "así que durante un rato se hizo un lío.",
         "Bigotes, el del puerto, me enseñó a moverme por {site}. A cambio le guardo las raspas de los "
         "viernes. Un acuerdo de caballeros… y de gatos.",
-        "La muesca de la oreja izquierda no es de un monstruo, {voc}: es de Don Mostachos, por el rayo de "
-        "sol del portal. Gané yo. Él dice que no, pero el sol ahora es mío.",
     ],
     [   # 3: de los de siempre (lo que no cuenta a cualquiera)
         "Ya que eres de los de siempre, {voc}: con el Ukanlos estuvimos a un carro de fallar. Dos del "
@@ -1081,21 +1112,29 @@ LORE: list[list[str]] = [
         "hasta que lo tumbaron. Esa noche nadie durmió en Pokke.",
         "¿Sabes cuántas vidas me quedan, {voc}? Cuatro. Una se quedó en el volcán con el Akantor, otra en "
         "la bañera y otra la noche que saqué al Tuerto de la perrera. Esa no me pesa nada.",
-        "Esto no se lo cuento a cualquiera, {voc}: les tengo pánico a los pepinos desde que un Plesioth "
-        "casi me traga en la Selva. Verde, alargado… y con un golpe de cadera que me mandó a volar.",
+        "Lo de los pepinillos, {voc}: en Astera un Deviljho se coló en la cacería y me agarró con la boca. "
+        "Verde, lleno de bultos, babeando… un pepinillo gigante con hambre. El miauestro le metió una SAED "
+        "en los morros y me soltó. Desde entonces, nada verde cerca.",
         "El cascabel que llevo me lo puso el miauestro en Pokke, «para no perderte en la ventisca». Hace "
         "años que no suena, {voc}, pero no me lo quito.",
-        "Con el hacha cargada, el miauestro tenía seis sets, {voc}: fuego, agua, rayo, hielo, dragón y "
-        "uno de bruto con viales de impacto. Yo me sabía el orden de la caja de memoria. Él no.",
+        "Con el Alatreon de Seliana, {voc}, había que pegarle con elemento o te borraba del mapa. Medio "
+        "mundo sufrió. El miauestro abrió su set elemental de hacha cargada y fue la llave. Nunca he "
+        "estado tan orgulloso de llevarle las pociones.",
         "La trilogía Fatalis, {voc}. El castillo Schrade. Ahí entendí que el miauestro estaba hecho de otra "
         "pasta: cuando todos corrían, él se acercaba con la ballesta pesada.",
+        "Y el Fatalis de Iceborne, {voc}, el de verdad. Bloqueo, bloqueo, punto de guardia… y SAED. Una y "
+        "otra vez, sin fallar, hasta que el dragón negro cayó. Yo no respiré en toda la cacería.",
         "En Elgado, contra el Malzeno primordial, el grupo cayó dos veces, {voc}. A la tercera el "
         "miauestro sacó la espada y escudo y no dejó caer a nadie más. Desde entonces le llamo «el "
         "curandero», pero solo cuando no me oye.",
+        "¿Sabes lo que más admiro del miauestro, {voc}? Que dominaba cuatro armas y además era el mejor "
+        "apoyo del grupo. Podía tumbar al monstruo o mantener vivos a todos. Elegía según lo que hiciera "
+        "falta. Eso es un cazador.",
         "Llevo una libreta de garra con cada encargo. Tu nombre sale tantas veces, {voc}, que le he "
-        "dibujado una estrellita al lado. Antes la usaba para apuntar los carros del grupo.",
-        "Cuando el miauestro colgó las armas, {voc}, me vine con él a la ciudad. Me ofreció quedarme de "
-        "felyne en Elgado, con el Almirante. Le dije que dónde iba a estar mejor que con mi cazador.",
+        "dibujado una estrellita al lado. Antes la usaba para apuntar las hazañas del miauestro. Ocupan "
+        "tres libretas.",
+        "Cuando el miauestro colgó las armas, {voc}, me vine con él a la ciudad. Me ofrecieron quedarme "
+        "de felyne en Elgado, con el Almirante. Les dije que dónde iba a estar mejor que con mi cazador.",
         "La gata Persa del quinto y yo… bueno, {voc}, eso es otra historia. Solo te diré que los martes "
         "compartimos tejado y que no es asunto de las palomas.",
     ],
@@ -1108,8 +1147,23 @@ BATTLES = [
     "que con <b>{title}</b>.",
     "Todavía me acuerdo de cuando llegó <b>{title}</b>, {voc}. Me sentí como al volver de la Ciudadela: "
     "con los bigotes chamuscados y la mochila llena.",
+    "<b>{title}</b> llegó sin un solo Bazelgeuse por medio, {voc}. Ni en Astera tuvimos tanta suerte.",
     "¿Te acuerdas de tu primera SAED, {voc}? Fallaste. El monstruo se apartó y la descarga se la llevó "
-    "una roca. Desde entonces no has fallado una. Yo sí me acuerdo de la roca.",
+    "una roca. Desde entonces no has fallado ni una. Yo sí me acuerdo de la roca.",
+    "¿Te acuerdas de cuando el grupo empezó a gritar «¡ahí va otra!» cada vez que pasabas a hacha, {voc}? "
+    "Yo lo sigo gritando. Por dentro.",
+    "¿Te acuerdas de los bloqueos perfectos, {voc}? El monstruo atacaba, tú clavabas el punto de guardia "
+    "y le devolvías la SAED. Kuro nunca ha visto nada tan bonito. Y he visto atardeceres en Seliana.",
+    "¿Te acuerdas del Alatreon, {voc}? Todo el mundo llorando con el chequeo de elemento y tú sacando el "
+    "set de hacha cargada que tocaba. Seis sets, {voc}. Me sigue pareciendo una locura preciosa.",
+    "¿Te acuerdas del Fatalis de Iceborne, {voc}? Bloqueo, punto de guardia, SAED. Una y otra vez. Yo "
+    "no respiré en toda la cacería.",
+    "¿Te acuerdas del Bazelgeuse, {voc}? Ibas a por un Kulu-Ya-Ku y acababas bajo una lluvia de bombas. "
+    "Todas las cacerías de rango alto en Astera. Todas.",
+    "¿Te acuerdas de aquella vez que el Bazelgeuse llegó justo cuando el monstruo cojeaba, {voc}? Bombas, "
+    "carro, y el monstruo se fue a dormir tan tranquilo. Aún le bufo cuando oigo un avión.",
+    "¿Te acuerdas del Deviljho que me agarró en Astera, {voc}? Le metiste una SAED en los morros y me "
+    "soltó. Te debo una vida. Y desde entonces, nada de pepinillos.",
     "¿Te acuerdas del Akantor del volcán, {voc}? Yo volví en el carro sin una vida y tú, sin cejas. Al "
     "día siguiente lo tumbamos. Nunca me has dado las gracias por el barril.",
     "¿Te acuerdas de cuando le corté la cola al Rathalos plateado, {voc}? Tú dices que fue la espada "
@@ -1118,28 +1172,34 @@ BATTLES = [
     "cuerno, sin caerte. Todavía me tiemblan los bigotes.",
     "¿Te acuerdas de los Desbocamientos de Kamura, {voc}? Tú en la puerta con la ballesta pesada, escudo "
     "delante, y ni un monstruo pasó. Mochi y yo apostábamos cuántos caían por oleada.",
+    "¿Te acuerdas de la ballesta pesada en Sunbreak, {voc}? Dispersión a quemarropa y los monstruos se "
+    "deshacían. Hubo días en que el hacha cargada se puso celosa.",
+    "¿Te acuerdas del Valstrax de Bherna, {voc}? Cayó del cielo como un cometa y tú ni pestañeaste. Yo "
+    "estaba en modo felyne, cazando por mi cuenta, y me escondí detrás de ti igual.",
+    "¿Te acuerdas de las aguas termales de Seliana, {voc}? Después de cada cacería en la escarcha. Ahí "
+    "aprendí que el agua caliente no es el enemigo. La bañera sí.",
     "¿Te acuerdas del Plesioth de la Selva, {voc}? Su golpe de cadera me mandó a la otra punta del mapa. "
-    "Tú te reías. Desde entonces, los pepinos.",
+    "Tú te reías. Le sigo guardando rencor.",
     "¿Te acuerdas de la primera Nargacuga, {voc}? De noche, sin verle más que los ojos, y tú con la "
     "espada larga esperando el momento. Yo estaba de guardia. Muy valiente. Detrás de una roca.",
     "¿Te acuerdas del Malzeno primordial, {voc}? Dos carros, y a la tercera sacaste la espada y escudo y "
     "no cayó nadie más. El grupo aún te debe esa.",
-    "¿Te acuerdas de la caja de memoria del hacha cargada, {voc}? Un set por elemento y otro de bruto, y "
-    "siempre me tocaba a mí recordarte cuál era cuál. De nada.",
     "¿Te acuerdas de cuando el Rajang te persiguió por todo el mapa, {voc}? Tú con la ballesta pesada "
     "dándole perdigones a quemarropa y yo aturdiéndolo a porrazos. Qué equipo.",
     "¿Te acuerdas de la ventisca de las Montañas Nevadas, {voc}? Te quedaste sin bebida caliente y te "
     "di la mía. Bueno, me la quitaste. Pero yo te la habría dado.",
     "¿Te acuerdas del castillo Schrade, {voc}? Cuando el Fatalis cayó, el grupo se quedó en silencio un "
     "minuto entero. Yo no: yo maullé. Alguien tenía que celebrarlo.",
-    "¿Te acuerdas de Mochi, el canyne de Kamura, {voc}? Me robaba el dango y tú le dabas la razón. Sigo "
-    "dolido.",
+    "¿Te acuerdas de Mochi, el canyne de Kamura, {voc}? Me robaba el dango y tú le dabas la razón. Y luego "
+    "en Wilds, el Seikret. Siempre hay un bicho que me quiere quitar el sitio.",
     "¿Te acuerdas de cuando el grupo te llamaba «el que no se cae», {voc}? Con el cuerno encajabas todo. "
     "Yo os curaba igual, por si acaso.",
+    "Ya lo he dicho alguna vez, {voc}, pero lo repito: de todos los cazadores de Pokke, Astera y Elgado, "
+    "Kuro eligió bien. Fufufu.",
     "¿Te acuerdas de la primera vez que nos bloquearon la web, {voc}? Tú buscando atajos y yo bufándole "
     "al router. Al final pasamos por el túnel de la cebolla, como en una misión de recolección clandestina.",
-    "Aquella vez que se cayó el servidor a medio capítulo, {voc}… tú maldiciendo como cuando te "
-    "triplecarreaban, y yo tirando cosas de la mesa para animarte.",
+    "Aquella vez que se cayó el servidor a medio capítulo, {voc}… Un Bazelgeuse, seguro. Tú maldiciendo "
+    "como cuando te triplecarreaban, y yo tirando cosas de la mesa para animarte.",
 ]
 STORY_KEYS = {
     "approved", "approved_boss", "job_done_all", "movie_done", "cancelled", "quota_left", "quota_admin",
