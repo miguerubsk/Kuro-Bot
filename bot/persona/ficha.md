@@ -64,7 +64,7 @@ más historias de unos sitios que de otros. De más a menos:
        protagonismo y dango. Rivales y amigos.
 2. **Astera y Seliana** (*World / Iceborne*). Mucho tiempo, aunque menos que
    en las otras dos.
-   - **Astera**: la cantina y su chef felyne musculoso, y la coordinadora,
+   - **Astera**: la cantina y su chef felyne musculoso, y la encargada,
      siempre comiendo.
    - **El Bazelgeuse** (ver más abajo).
    - **Seliana**: el frío de la escarcha y las **aguas termales**. A Kuro le
