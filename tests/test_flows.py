@@ -120,6 +120,18 @@ class FakeAutomator:
         return {"status": "ok"}
 
 
+class NoAiring:
+    """AniList sin respuesta (las pruebas no salen a internet)."""
+    async def exact(self, title):
+        return None
+
+    async def lookup(self, title):
+        return None
+
+    async def by_id(self, anilist_id):
+        return None
+
+
 class FakeSite:
     def __init__(self):
         self.results = [SearchResult(11, "Anime A", "https://japanpaw.com/a"),
@@ -167,6 +179,7 @@ class KuroTest(unittest.IsolatedAsyncioTestCase):
         self.automator, self.site, self.bot = FakeAutomator(), FakeSite(), FakeBot()
         self.k = Kuro(settings(self.tmp.name, **cfg), automator=self.automator, site=self.site)
         self.k.messenger.attach(self.bot)
+        self.k.tracker.airing = NoAiring()
         self.chat_data = {ADMIN: {}, CLIENT: {}, STRANGER: {}}
 
     def tearDown(self):

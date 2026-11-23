@@ -31,6 +31,7 @@ si ha cambiado la hora de emisión, se reajusta la ventana.
 """
 
 import asyncio
+import dataclasses
 import logging
 import os
 import random
@@ -44,6 +45,7 @@ from ..core.models import TrackStatus
 from ..core.text import e
 from ..services.airing import AiringClient
 from ..services.changedetection import ChangeDetectionClient, ChangeDetectionError
+from ..services.japanpaw import clean_title
 from ..ui.keyboards import yes_no
 from .schedule import Schedule
 
@@ -100,6 +102,25 @@ class Tracker:
 
     def full(self, chat_id: int) -> bool:
         return not self.k.is_admin(chat_id) and self.k.db.track_counted(chat_id) >= self.limit
+
+    # ---------------------------------------------------------- emisión
+    async def confirm_airing(self, post):
+        """
+        La web no siempre marca lo que está en emisión: si dice que no, se
+        pregunta a AniList por ese mismo título (exacto: otra temporada no
+        vale). Devuelve el post, con airing=True si AniList lo da por emitiéndose.
+        """
+        if post.airing or post.movie:
+            return post
+        try:
+            info = await self.airing.exact(clean_title(post.title))
+        except Exception:
+            log.warning("AniList no ha podido confirmar la emisión de %s", post.title, exc_info=True)
+            return post
+        if info and info.status == "RELEASING":
+            log.info("%s: la web no lo marca en emisión, pero AniList sí (%s)", post.title, info.anilist_id)
+            return dataclasses.replace(post, airing=True)
+        return post
 
     # ------------------------------------------------------------ oferta
     async def offer(self, chat_id: int, user_name: str, post):
@@ -378,8 +399,9 @@ class Tracker:
         except Exception as ex:
             log.warning("No pude releer %s para el seguimiento: %s", first.post_url, ex)
             return
-        finished = not post.airing
         info = await self.airing.by_id(first.anilist_id) if first.anilist_id else None
+        # la web puede no marcarlo: si AniList dice que se sigue emitiendo, no se acaba
+        finished = not post.airing and not (info and info.status == "RELEASING")
         key = f"track_finished_since:{url}"
         if not finished and info and info.status == "FINISHED":
             since = db.kv_get(key) or time.time()

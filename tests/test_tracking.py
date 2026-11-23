@@ -96,6 +96,11 @@ class FakeAiring:
     def __init__(self):
         self.next_at = datetime(2026, 11, 26, 17, 30, tzinfo=MADRID).timestamp()
         self.status = "RELEASING"
+        self.exact_titles: dict[str, str] = {}   # título exacto -> estado en AniList
+
+    async def exact(self, title):
+        st = self.exact_titles.get(title)
+        return Airing(43, st, self.next_at, 9, 12) if st else None
 
     async def lookup(self, title):
         return Airing(42, self.status, self.next_at, 9, 12)
@@ -166,6 +171,18 @@ class TestTrackingFlow(TrackingTest):
         self.k.tracker.cd = type("Off", (), {"enabled": False})()
         self.k.tracker.sources = frozenset({"changedetection"})
         await self.press(Pick, ADMIN, "pick:11")
+        self.assertFalse(any(d.startswith("tky:") for m in self.bot.sent for d in self.buttons(m)))
+
+    async def test_anilist_confirms_airing_when_the_site_does_not(self):
+        # el post 12 no está marcado en emisión en la web, pero AniList dice que se emite
+        self.airing.exact_titles = {"Anime A 2nd Season": "RELEASING"}
+        await self.press(Pick, CLIENT, "pick:12")
+        self.assertTrue(self.offer_msg(CLIENT))
+        self.assertTrue(self.k.db.get(1).airing)
+
+    async def test_anilist_finished_does_not_make_it_airing(self):
+        self.airing.exact_titles = {"Anime A 2nd Season": "FINISHED"}
+        await self.press(Pick, CLIENT, "pick:12")
         self.assertFalse(any(d.startswith("tky:") for m in self.bot.sent for d in self.buttons(m)))
 
     async def test_offer_even_if_library_complete(self):
@@ -286,6 +303,7 @@ class TestMaintenance(TrackingTest):
     async def test_ends_when_site_stops_airing(self):
         await self.activate()
         self.site.airing_ids = set()
+        self.airing.status = "FINISHED"                   # y AniList tampoco lo da por emitiéndose
         await self.k.tracker.maintain()
         self.assertEqual(self.k.db.track_get(1).status, TrackStatus.ENDED)
         self.assertEqual(self.cd.deleted, ["w1"])
@@ -298,6 +316,15 @@ class TestMaintenance(TrackingTest):
         self.assertEqual(Schedule.from_dict(self.k.db.track_get(1).schedule).weekday, 5)
         await self.k.tracker.maintain()
         self.assertEqual(len(self.cd.rescheduled), 1)     # sin cambios, no se toca
+
+    async def test_site_unmarks_but_anilist_still_releasing(self):
+        await self.activate()
+        self.site.airing_ids = set()                      # la web ya no lo marca…
+        await self.k.tracker.maintain()                   # …pero AniList sigue: no se acaba
+        self.assertEqual(self.k.db.track_get(1).status, TrackStatus.ACTIVE)
+        self.airing.status = "FINISHED"
+        await self.k.tracker.maintain()
+        self.assertEqual(self.k.db.track_get(1).status, TrackStatus.ENDED)
 
     async def test_anilist_finished_waits_for_the_site(self):
         await self.activate()
@@ -409,3 +436,29 @@ class TestBypass(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestAniListExact(unittest.IsolatedAsyncioTestCase):
+    def client(self, media):
+        from bot.services.airing import AiringClient
+
+        class C(AiringClient):
+            async def _query(self, query, variables, timeout=10):
+                return {"Page": {"media": media}}
+        return C()
+
+    @staticmethod
+    def media(mid, romaji, status, synonyms=()):
+        return {"id": mid, "status": status, "episodes": None, "title": {"romaji": romaji, "english": None},
+                "synonyms": list(synonyms), "nextAiringEpisode": None}
+
+    async def test_only_the_same_title_counts(self):
+        c = self.client([self.media(1, "Berserk: Ougon Jidai-hen - Memorial Edition", "RELEASING"),
+                         self.media(2, "Berserk (2017)", "FINISHED", ["Berserk 2nd Season"])])
+        info = await c.exact("Berserk 2nd Season")
+        self.assertEqual((info.anilist_id, info.status), (2, "FINISHED"))
+        self.assertIsNone(await c.exact("Berserk 3rd Season"))
+
+    async def test_long_vowels_and_signs(self):
+        c = self.client([self.media(7, "Tsuihou Sareta Tensei Juukishi wa Game Chishiki de Musou Suru", "RELEASING")])
+        self.assertEqual((await c.exact("Tsuihō Sareta Tensei Jūkishi wa Game Chishiki de Musō Suru")).anilist_id, 7)

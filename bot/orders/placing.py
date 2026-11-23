@@ -211,6 +211,7 @@ class SinglePlacing(Placing):
             await self.stop("post_error")
         if not post.paste_url:
             await self.stop("no_link", title=post.title)
+        post = await self.k.tracker.confirm_airing(post)
         self.saw(post)
 
         check = None
@@ -265,6 +266,7 @@ class BundlePlacing(Placing):
                 continue
             if not post.paste_url:
                 continue
+            post = await self.k.tracker.confirm_airing(post)
             self.saw(post)
             check = await self.sub.check(post)
             if check is not None and not check.available:
