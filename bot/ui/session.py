@@ -26,6 +26,7 @@ class Deck:
     items: list[Choice]
     details: dict
     groups: dict[int, SeasonGroup] = field(default_factory=dict)
+    torrent: bool = False    # opciones de AniList (por torrent), no de la web
 
 
 class ChatSession:

@@ -43,6 +43,8 @@ class Settings:
     bypass_proxy: str = ""
     # pedir por torrent lo que no está en la web: off, admin (solo el miauestro) o all
     torrent_access: str = "admin"
+    # sinopsis en español de lo que se pide por torrent (TMDB, clave gratuita); sin ella, la de AniList en inglés
+    tmdb_api_key: str = ""
 
 
 def load() -> Settings:
@@ -76,6 +78,7 @@ def load() -> Settings:
             bypass_proxy=os.environ.get("BLOCK_BYPASS_PROXY", "").strip(),
             tracking_check_minutes=int(os.environ.get("TRACKING_CHECK_MINUTES", "60") or 60),
             torrent_access=_torrent_access(os.environ.get("TORRENT_ACCESS", "admin")),
+            tmdb_api_key=os.environ.get("TMDB_API_KEY", "").strip(),
         )
     except ValueError as e:
         sys.exit(f"Valor inválido en el .env (los ids de chat, WEEKLY_LIMIT y TRACKING_* deben ser números): {e}")

@@ -18,7 +18,7 @@ from bot.handlers.admin import Alta, Descargados, HistoryPage, Pendientes
 from bot.handlers.general import Cupo, Help, Start
 from bot.handlers.orders import Decision, Pick, PickAll
 from bot.handlers.search import CardPage, Cancel, FreeText
-from bot.handlers.torrent import TorrentGo, TorrentPick, TorrentSeason
+from bot.handlers.torrent import TorrentAll, TorrentGo, TorrentGoAll, TorrentPick, TorrentSeason
 from bot.kuro import Kuro
 from bot.services.japanpaw import Details, PostInfo, SearchResult
 
@@ -136,18 +136,7 @@ class FakeAutomator:
 
 
 class NoAiring:
-    """AniList sin respuesta (las pruebas no salen a internet), salvo las opciones para torrent."""
-    def __init__(self):
-        from bot.services.airing import Option
-        self.opts = [Option(108891, "Kono Oto Tomare! 2", "Koto: The Sound of Life 2", "TV", 13, 2019, "FINISHED"),
-                     Option(209463, "Kanata Kara", "", "TV", None, 2026, "RELEASING")]
-
-    async def options(self, query, limit=6):
-        return list(self.opts)
-
-    async def option(self, anilist_id):
-        return next((o for o in self.opts if o.anilist_id == anilist_id), None)
-
+    """AniList sin respuesta (las pruebas no salen a internet)."""
     async def exact(self, title):
         return None
 
@@ -156,6 +145,32 @@ class NoAiring:
 
     async def by_id(self, anilist_id):
         return None
+
+
+class FakeCatalog:
+    """AniList para lo que se pide por torrent: Kono Oto Tomare (T1 -> T2) y Kanata Kara (suelta)."""
+    def __init__(self):
+        from bot.services.catalog import Option
+        self.all = {
+            103302: Option(103302, "Kono Oto Tomare!", "Koto", "TV", 13, 2019, "FINISHED",
+                           description="Chika joins the koto club.", neighbours=[("SEQUEL", 108891, "TV")]),
+            108891: Option(108891, "Kono Oto Tomare! 2", "Koto 2", "TV", 13, 2019, "FINISHED",
+                           description="The koto club goes on.", genres=["Music", "Drama"],
+                           neighbours=[("PREQUEL", 103302, "TV")]),
+            209463: Option(209463, "Kanata Kara", "", "TV", None, 2026, "RELEASING"),
+        }
+
+    async def options(self, query, limit=6):
+        return [self.all[108891], self.all[209463]]
+
+    async def option(self, anilist_id):
+        return self.all.get(anilist_id)
+
+    async def details(self, options):
+        return {o.anilist_id: o.details() for o in options}
+
+    async def seasons(self, anilist_id):
+        return [self.all[103302], self.all[108891]] if anilist_id in (103302, 108891) else [self.all[anilist_id]]
 
 
 class FakeSite:
@@ -206,6 +221,7 @@ class KuroTest(unittest.IsolatedAsyncioTestCase):
         self.k = Kuro(settings(self.tmp.name, **cfg), automator=self.automator, site=self.site)
         self.k.messenger.attach(self.bot)
         self.k.tracker.airing = NoAiring()
+        self.k.catalog = FakeCatalog()
         self.chat_data = {ADMIN: {}, CLIENT: {}, STRANGER: {}}
 
     def tearDown(self):
@@ -491,12 +507,19 @@ class TestTorrent(KuroTest):
         await self.type(FreeText, chat_id, "kono oto tomare 2")
         return self.bot.to(chat_id)[-1]
 
-    async def test_only_the_boss_gets_the_torrent_way_by_default(self):
-        msg = await self.not_found(ADMIN)
-        self.assertEqual(self.buttons(msg), ["trt:108891", "trt:209463", "cancel"])
-        self.assertIn("en emisión", msg.reply_markup.inline_keyboard[1][0].text)
-        self.assertNotIn("nyaa", msg.text.lower())
+    async def test_only_the_boss_gets_cards_by_default(self):
+        card = await self.not_found(ADMIN)
+        self.assertIsNotNone(card.photo)                       # ficha con portada (la de repuesto)
+        self.assertIn("The koto club goes on.", card.text)      # sinopsis de AniList
+        self.assertIn("inglés", card.text)
+        self.assertIn("Música", card.text)
+        self.assertEqual(self.buttons(card), ["card:1:1", "noop", "card:1:1", "trt:108891", "tra:108891", "cancel"])
+        self.assertNotIn("nyaa", card.text.lower())
+        q = await self.press(CardPage, ADMIN, "card:1:1", message=card)
+        self.assertIn("trt:209463", self.buttons(q.message))
+        self.assertNotIn("tra:209463", self.buttons(q.message))   # sin más temporadas
         msg = await self.not_found(CLIENT)
+        self.assertIsNone(msg.photo)
         self.assertEqual(self.buttons(msg), [])
 
     async def test_disabled(self):
@@ -562,5 +585,98 @@ class TestTorrent(KuroTest):
         self.assertTrue(q.message.text)
 
     async def test_client_cannot_press_old_buttons_when_admin_only(self):
-        q = await self.press(TorrentPick, CLIENT, "trt:108891")
+        await self.press(TorrentPick, CLIENT, "trt:108891")
+        await self.press(TorrentAll, CLIENT, "tra:108891")
         self.assertFalse(getattr(self.automator, "torrent_checks", []))
+
+
+class TestTorrentSeasons(KuroTest):
+    def checks(self, by_id):
+        async def check(anilist_id, season=None):
+            self.automator.torrent_checks = getattr(self.automator, "torrent_checks", []) + [(anilist_id, season)]
+            return by_id[anilist_id]
+        self.automator.torrent_check = check
+
+    def two_missing(self):
+        base = {"status": "missing", "name": "Kono Oto Tomare!", "preferred": 13, "found": list(range(1, 14)),
+                "groups": {"Erai-raws": 13}}
+        self.checks({103302: dict(base, season="1", missing=list(range(1, 14))),
+                     108891: dict(base, season="2", missing=[1, 2])})
+
+    async def test_client_orders_all_seasons_as_one_bundle(self):
+        self.make(torrent_access="all")
+        self.two_missing()
+        q = await self.press(TorrentAll, CLIENT, "tra:108891")
+        self.assertEqual([i for i, _ in self.automator.torrent_checks], [103302, 108891])   # de la T1 en adelante
+        self.assertIn("<b>T1</b>", q.message.text)
+        self.assertIn("1-13", q.message.text)
+        self.assertEqual(self.buttons(q.message), ["trb:1", "cancel"])
+
+        await self.press(TorrentGoAll, CLIENT, "trb:1", message=q.message)
+        reqs = self.k.db.bundle(1)
+        self.assertEqual([(r.anilist_id, r.season, r.source) for r in reqs],
+                         [(103302, "1", "torrent"), (108891, "2", "torrent")])
+        self.assertEqual(self.k.quota.remaining(CLIENT), 2)              # un solo carro
+        admin_msg = self.admin_request_msg()
+        self.assertEqual(self.buttons(admin_msg), ["bok:1", "bno:1"])
+        self.assertIn("Por torrent", admin_msg.text)
+        await self.press(Decision, ADMIN, "bok:1", message=admin_msg)
+        self.assertEqual(self.automator.torrent_downloads, [(103302, "1", 1), (108891, "2", 2)])
+
+    async def test_only_what_is_missing(self):
+        self.checks({103302: {"status": "nothing_new", "name": "Kono Oto Tomare!", "season": "1", "have": 13},
+                     108891: {"status": "missing", "name": "Kono Oto Tomare!", "season": "2", "missing": [1],
+                              "found": [1], "preferred": 0, "groups": {"ToonsHub": 1}}})
+        q = await self.press(TorrentAll, ADMIN, "tra:103302")
+        self.assertIn("ya la tienes", q.message.text)
+        await self.press(TorrentGoAll, ADMIN, "trb:1", message=q.message)
+        self.assertEqual(self.automator.torrent_downloads, [(108891, "2", 1)])
+
+    async def test_nothing_anywhere(self):
+        self.checks({103302: {"status": "nothing_new", "name": "K", "season": "1"},
+                     108891: {"status": "nothing_found", "name": "K", "season": "2"}})
+        q = await self.press(TorrentAll, ADMIN, "tra:103302")
+        self.assertIn("subtítulos en español", q.message.text)
+        self.assertEqual(self.buttons(q.message), [])
+
+    async def test_single_season_falls_back_to_one(self):
+        q = await self.press(TorrentAll, ADMIN, "tra:209463")
+        self.assertIn("trg:209463:2", self.buttons(q.message))
+
+
+class TestCatalog(unittest.IsolatedAsyncioTestCase):
+    async def test_chain_goes_through_specials(self):
+        from bot.services.catalog import AniListCatalog, Option
+        opts = {1: Option(1, "S1", "", "TV", 24, 2019, "FINISHED", neighbours=[("SEQUEL", 2, "TV")]),
+                2: Option(2, "S2", "", "TV", 11, 2021, "FINISHED",
+                          neighbours=[("PREQUEL", 1, "TV"), ("SEQUEL", 3, "SPECIAL")]),
+                3: Option(3, "Especial", "", "SPECIAL", 1, 2022, "FINISHED",
+                          neighbours=[("PREQUEL", 2, "TV"), ("SEQUEL", 4, "TV")]),
+                4: Option(4, "S3", "", "TV", 11, 2023, "FINISHED",
+                          neighbours=[("PREQUEL", 3, "SPECIAL"), ("SEQUEL", 5, "TV")]),
+                5: Option(5, "S4", "", "TV", 12, 2027, "NOT_YET_RELEASED", neighbours=[("PREQUEL", 4, "TV")])}
+        cat = AniListCatalog()
+
+        async def option(i):
+            return opts.get(i)
+        cat.option = option
+        self.assertEqual([o.title for o in await cat.seasons(4)], ["S1", "S2", "S3"])
+
+
+    def test_media_to_card(self):
+        from bot.services.catalog import Option
+        o = Option.from_media({
+            "id": 7, "status": "FINISHED", "episodes": 12, "format": "TV", "season": "FALL", "seasonYear": 2019,
+            "genres": ["Slice of Life", "Music"], "title": {"romaji": "Hibike", "english": "Sound!"},
+            "description": "Kumiko joins<br><br>the <i>band</i> &amp; more.\n\n(Source: Crunchyroll)",
+            "startDate": {"year": 2019}, "coverImage": {"large": "https://s4.anilist.co/x.jpg"},
+            "relations": {"edges": [{"relationType": "SEQUEL", "node": {"id": 8, "format": "TV", "type": "ANIME"}},
+                                    {"relationType": "SEQUEL", "node": {"id": 9, "format": "MOVIE", "type": "ANIME"}},
+                                    {"relationType": "SIDE_STORY", "node": {"id": 10, "format": "TV", "type": "ANIME"}}]}})
+        self.assertEqual(o.neighbours, [("SEQUEL", 8, "TV"), ("SEQUEL", 9, "MOVIE")])
+        d = o.details()
+        self.assertEqual(d.synopsis, "Kumiko joins\nthe band & more.")
+        self.assertEqual((d.season, d.genres, d.episodes), ("Otoño 2019", "Recuentos de la vida, Música", "12"))
+        self.assertEqual(d.cover_url, "https://s4.anilist.co/x.jpg")
+        self.assertIn("inglés", d.note)
+        self.assertEqual(o.details("Kumiko entra en la banda.").note, "")

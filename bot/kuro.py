@@ -19,6 +19,7 @@ from .orders.library import LibraryChecker
 from .orders.memo import OrderMemo
 from .persona import Persona
 from .services.automator import AutomatorClient
+from .services.catalog import AniListCatalog
 from .persona import lines as L
 from .services.japanpaw import JapanpawClient, clean_title
 from .tracking import Tracker
@@ -42,6 +43,7 @@ class Kuro:
         self.messenger = Messenger(self.db)
 
         self.automator = automator or AutomatorClient(cfg.automator_url, cfg.callback_secret)
+        self.catalog = AniListCatalog(cfg.tmdb_api_key)   # lo que se pide por torrent
         self.site = site or JapanpawClient(cfg.japanpaw_base, cfg.sockpuppet_url, cfg.force_browser,
                                              proxy=cfg.bypass_proxy)
 

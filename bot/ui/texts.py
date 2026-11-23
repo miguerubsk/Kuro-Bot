@@ -77,8 +77,8 @@ class Texts:
         first = reqs[0]
         lines = [self._say("admin_bundle_request", self.k.admin, who=first.user_name, bundle=first.bundle_id)]
         for r in reqs:
-            label = f" — {e(r.label)}" if r.label else ""
             t = seasons.get(r.id)
+            label = f" — {e(r.label)}" if r.label and r.label != f"T{t}" else ""
             lines.append(f"\n<b>{'T' + e(t) + ' · ' if t else ''}{e(r.title)}</b>{label} (#{r.id})\n"
                          f"{e(r.post_url)}{notes.get(r.id, '')}")
         return "\n".join(lines)

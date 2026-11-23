@@ -9,7 +9,7 @@ from telegram.error import BadRequest
 
 from ..core.text import e
 from ..services.japanpaw import Details
-from .keyboards import button, cancel_row, pager_row
+from .keyboards import TORRENT_ALL, TORRENT_OFFER, button, cancel_row, pager_row
 from .session import ChatSession, Choice, Deck
 
 CAPTION_MAX = 1000  # Telegram corta en 1024
@@ -63,7 +63,7 @@ def caption(choice: Choice, d: Details) -> str:
         facts.append("📡 en emisión")
     elif eps.isdigit() and not (choice.movie and eps == "1"):
         facts.append(f"{eps} caps.")
-    facts += [x for x in (d.season or d.premiere[:4], d.video) if x]
+    facts += [x for x in (d.season or d.premiere[:4], d.video, d.note) if x]
 
     head, plain_len = f"<b>{e(choice.label)}</b>", len(choice.label)
     for extra in (" · ".join(facts), d.genres):
@@ -85,6 +85,13 @@ def keyboard(cid: int, idx: int, deck: Deck) -> InlineKeyboardMarkup:
         rows.append(pager_row(lambda i: f"card:{cid}:{i}", idx, n))
     if n > 3:
         rows.append([button(f"·{i + 1}·" if i == idx else str(i + 1), f"card:{cid}:{i}") for i in range(n)])
+    if deck.torrent:
+        # opciones de AniList: pid es el id de AniList y gid, si tiene más temporadas, también
+        rows.append([button("🧲 Buscar este", f"{TORRENT_OFFER}:{ch.pid}")])
+        if ch.gid:
+            rows.append([button("📦 Todas las temporadas · 1 encargo", f"{TORRENT_ALL}:{ch.gid}")])
+        rows.append(cancel_row())
+        return InlineKeyboardMarkup(rows)
     rows.append([button("✅ Pedir este", f"pick:{ch.pid}")])
     group = deck.groups.get(ch.gid) if ch.gid else None
     if group:
@@ -103,8 +110,9 @@ class CardDeck:
         url, photo = await self.covers.photo(d)
         return url, photo, caption(ch, d), keyboard(cid, idx, deck)
 
-    async def send(self, bot, chat_id: int, session: ChatSession, choices: list[Choice], details: dict):
-        deck = Deck(choices, details, session.groups)
+    async def send(self, bot, chat_id: int, session: ChatSession, choices: list[Choice], details: dict,
+                   torrent: bool = False):
+        deck = Deck(choices, details, {} if torrent else session.groups, torrent)
         cid = session.add_deck(deck)
         url, photo, text, kb = await self._render(deck, cid, 0)
         msg = await bot.send_photo(chat_id, photo, caption=text, parse_mode=ParseMode.HTML, reply_markup=kb)

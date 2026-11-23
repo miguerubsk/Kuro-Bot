@@ -690,6 +690,23 @@ LINES: dict[str, list[str]] = {
         "🧲 <b>{title}</b> (T{season}) asoma por el mercadillo: {count} capítulo(s) ({ranges}), "
         "por torrent. ¿Me lo llevo, {voc}?",
     ],
+    "torrent_seasons_searching": [
+        "🧲 Subo a los tejados a buscar todas las temporadas de <b>{title}</b>… Esto lleva un ratito, nya.",
+        "🧲 Kuro va de tejado en tejado mirando cada temporada de <b>{title}</b>. Un momento, {voc}…",
+        "🧲 Inventario de <b>{title}</b> en el mercadillo de los tejados, temporada a temporada…",
+    ],
+    "torrent_seasons_offer": [
+        "🧲 Esto es lo que hay de <b>{title}</b> por los tejados (torrent), {voc}. "
+        "Me llevo {count} temporada(s) en un solo encargo:",
+        "🧲 Repaso de <b>{title}</b> en los tejados (torrent): {count} temporada(s) que puedo traerte "
+        "de una tacada, un solo carro:",
+        "🧲 De <b>{title}</b> hay género para {count} temporada(s) por torrent, {voc}. Todo en un encargo:",
+    ],
+    "torrent_seasons_none": [
+        "😿 De <b>{title}</b> no hay nada por los tejados que traiga subtítulos en español, {voc}. "
+        "No te cobro nada.",
+        "😿 He mirado temporada a temporada y de <b>{title}</b> no queda nada que me sirva, {voc}. No gasta carro.",
+    ],
     "torrent_have": [
         "Ya tengo {have} en la estantería; esos no los vuelvo a traer.",
         "{have} ya están en casa, nya: solo traigo lo que falta.",
@@ -1179,7 +1196,7 @@ LORE: list[list[str]] = [
         "miauestro sacó el hacha cargada sin pestañear. Yo pestañeé por los dos.",
         "En las cacerías de grupo de Freedom Unite, a los felynes nos dejaban en casa, {voc}. Yo esperaba "
         "en la puerta y, cuando volvían, exigía que me lo contaran todo. Con detalles.",
-        "En los Desbocamientos de Kamura, {voc}, el miauestro se plantaba en la puerta con la ballesta "
+        "En los Frenesís de Kamura, {voc}, el miauestro se plantaba en la puerta con la ballesta "
         "pesada y no pasaba ni el viento. Yo le acercaba la munición. Bueno, la que no me comía.",
         "La primera Nargacuga la cazamos de noche, {voc}. Solo se le veían los ojos rojos. A mí también, "
         "así que durante un rato se hizo un lío.",
@@ -1250,7 +1267,7 @@ BATTLES = [
     "larga. Kuro sabe lo que vio.",
     "¿Te acuerdas del Ukanlos, {voc}? Dos del grupo en el suelo, el reloj en el último minuto y tú con el "
     "cuerno, sin caerte. Todavía me tiemblan los bigotes.",
-    "¿Te acuerdas de los Desbocamientos de Kamura, {voc}? Tú en la puerta con la ballesta pesada, escudo "
+    "¿Te acuerdas de los Frenesís de Kamura, {voc}? Tú en la puerta con la ballesta pesada, escudo "
     "delante, y ni un monstruo pasó. Mochi y yo apostábamos cuántos caían por oleada.",
     "¿Te acuerdas de la ballesta pesada en Sunbreak, {voc}? Dispersión a quemarropa y los monstruos se "
     "deshacían. Hubo días en que el hacha cargada se puso celosa.",

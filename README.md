@@ -54,10 +54,17 @@ Los dos acaban en el mismo encolado, que nunca baja dos veces lo mismo.
    añadiéndolos a mano); los activos no se recrean solos.
 
 ## Por torrent (lo que no está en la web)
-Si la búsqueda no encuentra nada, Kuro enseña las opciones de AniList (series, no películas) y,
-al elegir una, pregunta a Anime-Automator qué hay por torrent (`POST /torrent/check`, con
-`CALLBACK_SECRET`): capítulos, temporada y carpeta. Al confirmar es un encargo normal (un carro,
-visto bueno del admin, avisos de cada capítulo) que va a `POST /torrent/download`.
+Si la búsqueda no encuentra nada, Kuro enseña las opciones de AniList (series, no películas) en
+fichas con portada, sinopsis y géneros, como las de la web. Al elegir una, pregunta a
+Anime-Automator qué hay por torrent (`POST /torrent/check`, con `CALLBACK_SECRET`): capítulos,
+temporada y carpeta. Al confirmar es un encargo normal (un carro, visto bueno del admin, avisos de
+cada capítulo) que va a `POST /torrent/download`.
+
+- **Todas las temporadas**: si el anime tiene precuelas o secuelas, la ficha lleva «📦 Todas las
+  temporadas». Kuro sigue la cadena de AniList (pasando por especiales y películas, pero contando
+  solo las de TV/ONA), mira cada temporada y pide las que falten como un solo lote (un carro).
+- **Sinopsis**: la de AniList está en inglés. Con `TMDB_API_KEY` (gratis en themoviedb.org) se usa
+  la de TMDB en español cuando la hay (es la de la serie entera, no la de cada temporada).
 
 - Anime-Automator elige el release de cada capítulo: Erai-raws > subtítulos múltiples > WEB-DL > 1080p.
   Descarta doblajes y todo lo que no anuncie subtítulos en español (Erai-raws los trae aunque no

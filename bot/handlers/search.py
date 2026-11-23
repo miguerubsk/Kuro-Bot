@@ -6,8 +6,8 @@ import logging
 from telegram import InlineKeyboardMarkup
 from telegram.error import BadRequest
 
-from ..orders.torrent import OFFER as TORRENT_OFFER
-from ..ui.keyboards import button, cancel_row
+from ..ui.keyboards import TORRENT_ALL, TORRENT_OFFER, button, cancel_row
+from ..ui.session import Choice
 from ..ui.results import ResultsBuilder
 from .base import Access, ButtonCommand, ChatCommand, TextCommand, register
 
@@ -50,13 +50,25 @@ class SearchMixin:
     async def not_found(self, ctx, status, query: str):
         """Sin resultados en la web: si se puede, las opciones de AniList para buscarlo por torrent."""
         text = ctx.say("not_found", query=query)
-        options = await self.k.tracker.airing.options(query) if self.k.torrent_allowed(ctx.chat_id) else None
+        options = await self.k.catalog.options(query) if self.k.torrent_allowed(ctx.chat_id) else None
         if not options:
             return await status.edit_text(text, parse_mode="HTML")
-        rows = [[button(o.label(), f"{TORRENT_OFFER}:{o.anilist_id}", width=60)] for o in options]
+        text += "\n\n" + ctx.say("torrent_pick")
+        try:
+            # fichas con portada y sinopsis, como las de la web
+            details = await self.k.catalog.details(options)
+            choices = [Choice(o.anilist_id, o.title, o.anilist_id if o.has_seasons else None) for o in options]
+            await status.edit_text(text, parse_mode="HTML")
+            return await self.k.cards.send(ctx.bot, ctx.chat_id, ctx.session, choices, details, torrent=True)
+        except Exception:
+            log.exception("No se pudieron enseñar las fichas de AniList; va la lista")
+        rows = []
+        for o in options:
+            rows.append([button(o.label(), f"{TORRENT_OFFER}:{o.anilist_id}", width=60)])
+            if o.has_seasons:
+                rows.append([button(f"📦 Todas: {o.title}", f"{TORRENT_ALL}:{o.anilist_id}", width=60)])
         rows.append(cancel_row())
-        await status.edit_text(text + "\n\n" + ctx.say("torrent_pick"), parse_mode="HTML",
-                               reply_markup=InlineKeyboardMarkup(rows))
+        await status.edit_text(text, parse_mode="HTML", reply_markup=InlineKeyboardMarkup(rows))
 
 
 @register

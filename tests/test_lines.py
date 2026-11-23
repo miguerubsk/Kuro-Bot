@@ -48,6 +48,8 @@ KEY_ARGS = {
     "lonely_back": {"days"}, "lonely_back_hurt": {"days"}, "lonely_back_drama": {"days"},
     "torrent_searching": {"title"}, "torrent_offer": {"title", "season", "count", "ranges"},
     "torrent_have": {"have"}, "torrent_none": {"title"},
+    "torrent_seasons_searching": {"title"}, "torrent_seasons_offer": {"title", "count"},
+    "torrent_seasons_none": {"title"},
 }
 PLAIN_KEYS = {"not_authorized", "already_decided", "track_gone"}   # van en alertas: sin HTML
 

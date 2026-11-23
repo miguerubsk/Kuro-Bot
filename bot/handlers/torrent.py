@@ -1,4 +1,4 @@
-"""Botones de los encargos por torrent: elegir el anime de AniList, pedirlo y corregir la temporada."""
+"""Botones de los encargos por torrent: elegir el anime de AniList (o todas sus temporadas), pedirlo y corregir la temporada."""
 
 from telegram.constants import ParseMode
 
@@ -43,6 +43,31 @@ class TorrentGo(TorrentButton):
         anilist_id, season = int(ctx.parts[0]), ctx.parts[1]
         sub = Submitter.for_chat(self.k, ctx.chat_id, ctx.user_name)
         await T.TorrentPlacing(self.k, sub, Progress.for_query(ctx.query), anilist_id, season, ctx.session).run()
+
+
+@register
+class TorrentAll(TorrentButton):
+    """tra:<anilist_id>: qué hay de todas las temporadas de ese anime."""
+    pattern = rf"^{T.ALL}:\d+$"
+
+    async def execute(self, ctx):
+        if await self.deny_torrent(ctx):
+            return
+        out = Progress.for_query(ctx.query)
+        await T.TorrentSeasons(self.k, ctx.chat_id, ctx.session).show(out, int(ctx.parts[0]))
+
+
+@register
+class TorrentGoAll(TorrentButton):
+    """trb:<lote>: pedir todas las temporadas ofrecidas como un solo encargo."""
+    pattern = rf"^{T.GO_ALL}:\d+$"
+
+    async def execute(self, ctx):
+        if await self.deny_torrent(ctx):
+            return
+        sub = Submitter.for_chat(self.k, ctx.chat_id, ctx.user_name)
+        await T.TorrentBundlePlacing(self.k, sub, Progress.for_query(ctx.query), int(ctx.parts[0]),
+                                     ctx.session).run()
 
 
 @register

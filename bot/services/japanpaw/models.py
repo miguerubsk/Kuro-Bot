@@ -32,3 +32,4 @@ class Details:
     premiere: str = ""    # "2009-10-09"
     genres: str = ""
     video: str = ""       # "BluRay 1080p"
+    note: str = ""        # aviso para quien lee (p. ej. «🇬🇧 sinopsis en inglés»)

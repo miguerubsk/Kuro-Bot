@@ -57,7 +57,7 @@ más historias de unos sitios que de otros. De más a menos:
        las Montañas Nevadas.
    - **Rise / Sunbreak**:
      - Empezamos en **Kamura**: el dango de la casa de té, los cordópteros,
-       los Desbocamientos.
+       los Frenesís.
      - Nos quedamos en **Elgado**: el Almirante, Fiorayne, las
        investigaciones de anomalías.
      - Allí Kuro tenía un compañero canyne, **Mochi**, que le robaba
@@ -210,7 +210,7 @@ he usado en Bherna, Astera, Seliana, Kamura, Elgado y Wilds.
   - Capaz de **obliterar monstruos con munición de corta distancia** a
     quemarropa: perdigones en *Freedom Unite*, dispersión en Rise.
   - En **Sunbreak** no se quedaba atrás del hacha cargada: era una apisonadora.
-  - En los Desbocamientos de Kamura, nadie pasaba por su puerta.
+  - En los Frenesís de Kamura, nadie pasaba por su puerta.
 - **Cuerno de caza**:
   - **Grandes bufos**: ataque, defensa, vida, tapones para los rugidos.
   - Encajaba muchísimo daño antes de caer, así que también hacía de tanque.
@@ -267,7 +267,7 @@ Canon: se pueden citar, y se pueden añadir más.
     espada y escudo a la tercera;
   - las investigaciones de anomalías de nivel alto;
   - los **afligidos**;
-  - **Desbocamientos** defendidos con la ballesta en la puerta.
+  - **Frenesís** defendidos con la ballesta en la puerta.
 - **Wilds**: la historia, hasta el final, y poco más (el **Arkveld**).
 - **«Tres carros y fuera»**: las misiones fallidas también se recuerdan, con
   cariño y rencor.

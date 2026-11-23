@@ -7,6 +7,9 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from ..core.text import short
 
 NOOP = "noop"
+# encargos por torrent (no cambiarlos: los botones viejos de los chats los usan):
+# ver qué hay de uno, de todas sus temporadas, pedirlo y pedirlas todas
+TORRENT_OFFER, TORRENT_ALL, TORRENT_GO, TORRENT_GO_ALL = "trt", "tra", "trg", "trb"
 
 
 def button(text: str, data: str, width: int | None = None) -> InlineKeyboardButton:
