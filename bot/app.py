@@ -98,8 +98,15 @@ def main():
     # httpx registra cada URL a nivel INFO, y la de Telegram contiene el token
     logging.getLogger("httpx").setLevel(logging.WARNING)
     cfg = config.load()
-    log.info("Seguimiento semanal: %s", f"change-detection en {cfg.cd_url}" if cfg.cd_url and cfg.cd_api_key
-             else "desactivado (faltan CHANGEDETECTION_URL / CHANGEDETECTION_API_KEY)")
+    watchers = []
+    if "changedetection" in cfg.tracking_sources:
+        watchers.append(f"change-detection en {cfg.cd_url} cada {cfg.tracking_check_minutes} min"
+                        if cfg.cd_url and cfg.cd_api_key else
+                        "change-detection NO (faltan CHANGEDETECTION_URL / CHANGEDETECTION_API_KEY)")
+    if "drive" in cfg.tracking_sources:
+        watchers.append("el Drive (Anime-Automator)")
+    log.info("Seguimiento semanal: %s; ventana de %s h", " + ".join(watchers) or "desactivado",
+             min(cfg.tracking_window_hours, 24))
     log.info("Arrancando Kuro (admin=%s, lista blanca=%s, palabra clave=%s, límite=%s/semana)",
              cfg.admin_chat_id, len(cfg.allowed_chat_ids), "sí" if cfg.access_keyword else "no", cfg.weekly_limit)
     KuroBot(Kuro(cfg)).build().run_polling(allowed_updates=Update.ALL_TYPES)

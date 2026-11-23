@@ -52,7 +52,8 @@ CREATE TABLE IF NOT EXISTS trackings (
     owned INTEGER NOT NULL DEFAULT 0,
     anilist_id INTEGER NOT NULL DEFAULT 0,
     schedule TEXT NOT NULL DEFAULT '',
-    request_id INTEGER NOT NULL DEFAULT 0
+    request_id INTEGER NOT NULL DEFAULT 0,
+    watch_title TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_trackings_paste ON trackings(paste_url, status);
 CREATE TABLE IF NOT EXISTS chats (
@@ -81,6 +82,9 @@ class Storage:
             for col in _LATE_COLUMNS:
                 if col not in cols:
                     self._db.execute(f"ALTER TABLE requests ADD COLUMN {col} INTEGER NOT NULL DEFAULT 0")
+            tcols = {r[1] for r in self._db.execute("PRAGMA table_info(trackings)")}
+            if "watch_title" not in tcols:   # el título de la ficha (carpeta en el Drive y en la biblioteca)
+                self._db.execute("ALTER TABLE trackings ADD COLUMN watch_title TEXT NOT NULL DEFAULT ''")
 
     # ------------------------------------------------------------ acceso
     def _write(self, sql: str, args=()) -> sqlite3.Cursor:
@@ -269,6 +273,7 @@ class Storage:
             post_url=r["post_url"], paste_url=r["paste_url"], status=r["status"], created_at=r["created_at"],
             watch_uuid=r["watch_uuid"], owned=bool(r["owned"]), anilist_id=r["anilist_id"],
             schedule=json.loads(r["schedule"]) if r["schedule"] else None, request_id=r["request_id"],
+            watch_title=r["watch_title"],
         )
 
     def _trackings(self, sql: str, args=()) -> list[Tracking]:

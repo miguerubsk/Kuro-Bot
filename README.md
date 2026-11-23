@@ -10,19 +10,48 @@ Kuro, bot de Telegram para pedir animes: busca el nombre en japanpaw.com, saca e
 - Si el anime está en emisión, se avisa a quien lo pidió de que solo se bajan los
   capítulos publicados hasta ese momento.
 
-## Seguimiento semanal (change-detection.io)
+## Seguimiento semanal (change-detection.io y el Drive)
 Si se pide algo en emisión (suelto o dentro de «todas las temporadas»), Kuro ofrece vigilarlo.
 Al cliente se le crea el seguimiento cuando el admin lo aprueba; al admin, al momento. Si ese
 anime ya se vigila (otro cliente o un watch hecho a mano), se apunta sin crear nada.
 Cada cliente tiene `TRACKING_LIMIT` seguimientos.
 
-- Se vigila la página de pastes y solo la rejilla de capítulos (`.tab_content .ep-grid`).
-  change-detection avisa a Anime-Automator (`/webhook`) y este baja lo que falte.
-- Solo se comprueba desde la hora de emisión (AniList) durante `TRACKING_WINDOW_HOURS`,
-  cada `TRACKING_CHECK_MINUTES`. Sin horario en AniList, se usa el día del estreno.
-- Cada 12 h se repasa: si la web ya no lo tiene en emisión, se borra el watch y se avisa.
-  Si cambia la hora de emisión, se ajusta la ventana. Los watches hechos a mano no se tocan.
+Hay dos vigilantes, elegidos con `TRACKING_SOURCES`:
+- `changedetection`: un watch de la página de pastes que mira solo la rejilla de capítulos
+  (`.tab_content .ep-grid`) cada `TRACKING_CHECK_MINUTES`. Avisa a Anime-Automator (`/webhook`).
+- `drive`: Kuro manda a Anime-Automator la lista completa (`PUT /watches`, con `CALLBACK_SECRET`):
+  URL, título de la ficha (con él elige la carpeta) y ventana. Anime-Automator mira la carpeta
+  del anime en la unidad de Drive de emisión cada 10 min, sin Chrome. La lista se manda cuando
+  cambia algo, al arrancar y tras cada repaso; si falla, se reintenta cada 10 min.
+
+Los dos acaban en el mismo encolado, que nunca baja dos veces lo mismo.
+
+- **Ventana**: como mucho 24 h desde la hora de emisión de AniList (`TRACKING_WINDOW_HOURS`,
+  24 por defecto y como máximo). Sin hora en AniList, el día del estreno entero *en Japón*
+  (de su medianoche a la siguiente, pasado a la hora local: en invierno, de 16:00 a 16:00).
+  Sin ningún dato, se mira siempre (change-detection cada 6 h).
+- Cada 12 h se repasa: si la web ya no lo tiene en emisión, se termina y se avisa. Si cambia la
+  hora de emisión, o el cambio de hora mueve la del estreno, se ajusta la ventana en los dos.
+  Las ventanas antiguas de más de 24 h se recortan en el primer repaso tras arrancar.
+  Los watches hechos a mano no se tocan.
 - `/seguimientos`: lista y 🗑 para quitar (el admin ve todos).
+
+### Del change-detection al Drive, poco a poco
+1. **Los dos a la vez** (`TRACKING_SOURCES=changedetection,drive`, como está ahora).
+   Durante unas semanas, compara quién detecta antes cada capítulo. En el log de
+   Anime-Automator se ve si el encolado vino del Drive o del webhook, y `GET /watches`
+   enseña el estado de cada anime en el Drive. Fíjate sobre todo en los animes sin `SxxEyy`
+   (numeración absoluta), que en el Drive van más lentos.
+2. **El Drive delante, change-detection de respaldo**: sube `TRACKING_CHECK_MINUTES`
+   (p. ej. a 120 o 180). change-detection gasta menos Chrome y solo pilla lo que el Drive
+   no vea. El repaso tras arrancar lo aplica también a los watches que ya existen.
+3. **Solo el Drive** (`TRACKING_SOURCES=drive`): en el siguiente repaso (a los 5 min de
+   arrancar), Kuro borra de change-detection los watches que creó él, te avisa y deja de
+   crear más. Los hechos a mano siguen allí. El seguimiento funciona aunque no haya
+   `CHANGEDETECTION_URL`.
+4. **Marcha atrás**: con `TRACKING_SOURCES=changedetection`, Kuro vacía la lista del Drive.
+   Los watches de change-detection se vuelven a crear al reactivar cada seguimiento (o
+   añadiéndolos a mano); los activos no se recrean solos.
 
 ## Bloqueos
 Si la web da un certificado falso (bloqueo de LaLiga), se busca otra IP de Cloudflare por DoH.

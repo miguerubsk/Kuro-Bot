@@ -41,7 +41,7 @@ class Kuro:
         self.quota = Quota(self.db, cfg.weekly_limit, self.admin)
         self.messenger = Messenger(self.db)
 
-        self.automator = automator or AutomatorClient(cfg.automator_url)
+        self.automator = automator or AutomatorClient(cfg.automator_url, cfg.callback_secret)
         self.site = site or JapanpawClient(cfg.japanpaw_base, cfg.sockpuppet_url, cfg.force_browser,
                                              proxy=cfg.bypass_proxy)
 

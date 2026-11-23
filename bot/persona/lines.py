@@ -840,6 +840,11 @@ LINES: dict[str, list[str]] = {
     "track_admin_ended": [
         "🏁 <b>{title}</b> ya no está en emisión, {voc}: he borrado su guardia.",
     ],
+    "track_admin_cd_retired": [
+        "📡 {Voc}, he retirado {n} guardia(s) de change-detection: ahora vigilo solo el Drive. Como cambiar "
+        "de arma a mitad de temporada, pero con el set ya preparado.",
+        "📡 Hecho, {voc}: {n} guardia(s) fuera de change-detection. A partir de ahora, solo el Drive.",
+    ],
     "track_admin_delete_failed": [
         "⚠️ No he podido borrar la guardia de <b>{title}</b> en change-detection, {voc}. Quítala a mano:",
     ],

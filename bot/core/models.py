@@ -96,3 +96,4 @@ class Tracking:
     anilist_id: int = 0
     schedule: dict | None = None
     request_id: int = 0
+    watch_title: str = ""      # <title> de la ficha: con él elige Anime-Automator la carpeta

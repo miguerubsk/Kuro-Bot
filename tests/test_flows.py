@@ -99,6 +99,8 @@ class FakeAutomator:
         self.library = {"status": "missing", "missing": [1, 2], "have": 0, "available": 2, "folder": "X"}
         self.download_result = {"status": "queued", "queued": [1, 2], "tracked": True, "available": 2}
         self.season_info: list = []
+        self.synced: list[list[dict]] = []   # cada lista mandada a /watches
+        self.sync_ok = True
 
     async def request_download(self, paste_url, job_id=None, movie=False, title=None):
         self.downloads.append((paste_url, job_id))
@@ -109,6 +111,13 @@ class FakeAutomator:
 
     async def seasons(self, titles, budget=12):
         return self.season_info
+
+    async def sync_watches(self, watches):
+        self.synced.append(list(watches))
+        return self.sync_ok
+
+    async def poll_watch(self, watch_url):
+        return {"status": "ok"}
 
 
 class FakeSite:
@@ -143,7 +152,8 @@ class FakeSite:
 def settings(data_dir, **kw) -> Settings:
     base = dict(token="x", admin_chat_id=ADMIN, allowed_chat_ids=frozenset({CLIENT}), access_keyword="",
                 weekly_limit=3, automator_url="http://a", sockpuppet_url="ws://b", japanpaw_base="https://c",
-                force_browser=False, data_dir=data_dir, callback_secret="s", events_port=0)
+                force_browser=False, data_dir=data_dir, callback_secret="s", events_port=0,
+                tracking_sources=frozenset({"changedetection"}))   # sin URL de change-detection: apagado
     base.update(kw)
     return Settings(**base)
 

@@ -1,5 +1,5 @@
 """
-Seguimiento semanal de lo que está en emisión (change-detection.io).
+Seguimiento semanal de lo que está en emisión (change-detection.io y el Drive).
 
 Cuando alguien pide un anime en emisión (suelto o dentro de «todas las
 temporadas»), Kuro le ofrece vigilarlo. Si dice que sí:
@@ -10,14 +10,24 @@ temporadas»), Kuro le ofrece vigilarlo. Si dice que sí:
 - si ese anime ya se vigila (por otro cliente o un watch hecho a mano), se
   apunta sin crear nada ni molestar al admin: no gasta recursos.
 
-El watch mira solo la rejilla de enlaces de la página de pastes, y solo los
-días y horas en que puede salir capítulo (horario de AniList; si no, el día
-de la semana del estreno). change-detection avisa a Anime-Automator
-(/webhook) y este baja lo que falte, como con los seguimientos de siempre.
+Hay dos vigilantes (TRACKING_SOURCES), y los dos miran solo en la ventana
+de emisión (como mucho 24 h desde la hora de AniList; si no, el día del
+estreno en Japón):
+
+- changedetection: un watch de la página de pastes que mira solo la rejilla
+  de enlaces; avisa a Anime-Automator (/webhook).
+- drive: Kuro le manda a Anime-Automator la lista completa de animes
+  vigilados (PUT /watches: URL, título de la ficha y ventana), y este mira
+  la carpeta de cada uno en la unidad de Drive de emisión cada 10 min.
+
+Los dos acaban en el mismo encolado, que nunca baja dos veces lo mismo. La
+lista del Drive se manda cada vez que cambia algo, al arrancar y tras cada
+repaso (si falla, se reintenta cada 10 min). Si se quita «changedetection»
+de TRACKING_SOURCES, el repaso borra los watches que creó Kuro allí.
 
 Cada 12 h se repasan los activos: si la web ya no lo tiene en emisión (o
-AniList lo da por terminado hace más de dos semanas), se borra el watch y se
-avisa; si ha cambiado la hora de emisión, se reajusta la ventana.
+AniList lo da por terminado hace más de dos semanas), se termina y se avisa;
+si ha cambiado la hora de emisión, se reajusta la ventana.
 """
 
 import asyncio
@@ -41,6 +51,9 @@ log = logging.getLogger(__name__)
 
 SITE_SUFFIX = " - Japan-Paw! Descarga Calidad"   # el <title> de la página de pastes
 MAINTAIN_EVERY = 12 * 3600
+RESYNC_EVERY = 10 * 60              # reintento de la lista del Drive si no llegó
+K_DRIVE_SYNCED = "drive_watches_synced"
+K_CD_MINUTES = "cd_check_minutes"   # intervalo con el que están los watches de change-detection
 FINISHED_GRACE = 14 * 24 * 3600     # AniList dice «terminado», pero puede faltar subir el último
 
 
@@ -58,10 +71,29 @@ class Tracker:
         self.airing = airing or AiringClient()
         self.window = cfg.tracking_window_hours
         self.limit = cfg.tracking_limit
+        self.sources = cfg.tracking_sources
+        self._sync_lock = asyncio.Lock()
+        self._sync_pending = False
+
+    @property
+    def use_cd(self) -> bool:
+        return "changedetection" in self.sources and self.cd.enabled
+
+    @property
+    def use_drive(self) -> bool:
+        return "drive" in self.sources
 
     @property
     def enabled(self) -> bool:
-        return self.cd.enabled
+        return self.use_cd or self.use_drive
+
+    def sources_text(self) -> str:
+        parts = []
+        if self.use_cd:
+            parts.append(f"change-detection cada {self.cd.check_minutes} min")
+        if self.use_drive:
+            parts.append("el Drive (Anime-Automator) cada 10 min")
+        return " y ".join(parts) or "nadie"
 
     def _say(self, key, to, **kw):
         return self.k.persona.say(key, to, **kw)
@@ -104,7 +136,8 @@ class Tracker:
 
         shared = db.track_active_for_url(t.paste_url)
         if shared:  # ya se vigila: se apunta sin crear nada
-            db.track_update(t.id, watch_uuid=shared[0].watch_uuid, owned=shared[0].owned)
+            db.track_update(t.id, watch_uuid=shared[0].watch_uuid, owned=shared[0].owned,
+                            watch_title=shared[0].watch_title)
             db.track_transition(t.id, (TrackStatus.PENDING,), TrackStatus.ACTIVE)
             if not self.k.is_admin(to):
                 await self.k.messenger.send(self.k.admin, self._say(
@@ -139,7 +172,7 @@ class Tracker:
             try:
                 details = await self.k.site.details([t.post_id])
                 d = details.get(t.post_id)
-                s = Schedule.from_premiere(d.premiere, self.window) if d else None
+                s = Schedule.from_premiere(d.premiere, self.tz) if d else None
             except Exception:
                 log.warning("Sin ficha para el horario de %s", t.title, exc_info=True)
             s = s or Schedule.always()
@@ -153,7 +186,7 @@ class Tracker:
         source = {"anilist": "hora de emisión de AniList", "estreno": "día del estreno; hora desconocida"}
         return (self._say("track_admin_request", self.k.admin, who=t.user_name, title=t.title)
                 + f"\nVigilancia: {e(s.describe())} ({source.get(s.source, 'sin horario: cada 6 h')})"
-                + f"\nCada {self.cd.check_minutes} min dentro de la ventana"
+                + f"\nDentro de la ventana mira {e(self.sources_text())}"
                 + f"\n{e(t.post_url)}\n{e(t.paste_url)}")
 
     def admin_keyboard(self, t, retry: bool = False):
@@ -161,20 +194,27 @@ class Tracker:
                       "❌ Ni hablar", f"{self.REJECT}:{t.id}")
 
     async def activate(self, t) -> tuple[bool, str]:
-        """Crea (o reutiliza) el watch y deja el seguimiento activo. (ok, detalle del error)."""
+        """
+        Crea (o reutiliza) el watch de change-detection, si se usa, deja el
+        seguimiento activo y manda la lista al Drive. (ok, detalle del error)
+        """
         db = self.k.db
         schedule = Schedule.from_dict(t.schedule)
-        try:
-            uuid, owned = await self.cd.find(t.paste_url), False
-            if uuid:
-                log.info("%s ya se vigilaba en change-detection (%s): no creo otro", t.paste_url, uuid)
-            else:
-                uuid, owned = await self.cd.create(t.paste_url, await self._watch_title(t), schedule), True
-        except ChangeDetectionError as ex:
-            log.error("No se pudo crear el seguimiento #%s: %s", t.id, ex)
-            db.track_update(t.id, status=TrackStatus.FAILED)
-            return False, str(ex)
-        db.track_update(t.id, watch_uuid=uuid, owned=owned, status=TrackStatus.ACTIVE)
+        title = t.watch_title or await self._watch_title(t)
+        uuid, owned = "", False
+        if self.use_cd:
+            try:
+                uuid = await self.cd.find(t.paste_url)
+                if uuid:
+                    log.info("%s ya se vigilaba en change-detection (%s): no creo otro", t.paste_url, uuid)
+                else:
+                    uuid, owned = await self.cd.create(t.paste_url, title, schedule), True
+            except ChangeDetectionError as ex:
+                log.error("No se pudo crear el seguimiento #%s: %s", t.id, ex)
+                db.track_update(t.id, status=TrackStatus.FAILED, watch_title=title)
+                return False, str(ex)
+        db.track_update(t.id, watch_uuid=uuid, owned=owned, watch_title=title, status=TrackStatus.ACTIVE)
+        await self.sync_automator()
         return True, ""
 
     async def _watch_title(self, t) -> str:
@@ -221,18 +261,83 @@ class Tracker:
                     "track_admin_delete_failed", self.k.admin, title=t.title) + f"\n<code>{e(str(ex))}</code>")
         if notify_key:
             await self.k.messenger.send(t.chat_id, self._say(notify_key, t.chat_id, title=t.title))
+        await self.sync_automator()
         return True
+
+    # ------------------------------------------------------------ Drive
+    async def sync_automator(self) -> bool:
+        """
+        Manda a Anime-Automator la lista completa de lo que se vigila en el
+        Drive: un watch por URL, con el título de la ficha y la misma ventana
+        que change-detection. Sin «drive» en TRACKING_SOURCES, la vacía (una vez).
+        """
+        db = self.k.db
+        async with self._sync_lock:
+            if not self.use_drive and not db.kv_get(K_DRIVE_SYNCED):
+                return True
+            out: dict[str, dict] = {}
+            for t in db.track_list() if self.use_drive else []:   # los activos
+                if t.paste_url in out:
+                    continue
+                title = t.watch_title
+                if not title:   # seguimientos de antes: se calcula una vez
+                    title = await self._watch_title(t)
+                    for same in db.track_active_for_url(t.paste_url):
+                        db.track_update(same.id, watch_title=title)
+                out[t.paste_url] = {"watch_url": t.paste_url, "title": title,
+                                    "schedule": Schedule.from_dict(t.schedule).to_dict() if t.schedule else {},
+                                    "timezone": self.tz_name}
+            ok = await self.k.automator.sync_watches(list(out.values()))
+            self._sync_pending = not ok
+            if ok:
+                db.kv_set(K_DRIVE_SYNCED, 1 if self.use_drive else 0)
+                log.info("Lista del Drive enviada a Anime-Automator: %s anime(s)", len(out))
+            return ok
+
+    async def poll_now(self, t) -> dict:
+        """Que Anime-Automator mire ya ese anime en el Drive (aunque esté fuera de la ventana)."""
+        return await self.k.automator.poll_watch(t.paste_url)
+
+    async def retire_cd(self):
+        """Sin «changedetection» en TRACKING_SOURCES: borra los watches que creó Kuro allí."""
+        if "changedetection" in self.sources or not self.cd.enabled:
+            return
+        db, done = self.k.db, 0
+        for t in db.track_list():
+            if not (t.owned and t.watch_uuid):
+                continue
+            try:
+                await self.cd.delete(t.watch_uuid)
+            except ChangeDetectionError as ex:
+                log.warning("No pude retirar el watch %s (%s) de change-detection: %s", t.watch_uuid, t.title, ex)
+                continue
+            for same in db.track_active_for_url(t.paste_url):
+                db.track_update(same.id, watch_uuid="", owned=False)
+            done += 1
+        if done:
+            log.info("Retirados %s watches de change-detection: ya vigila solo el Drive", done)
+            await self.k.messenger.send(self.k.admin, self._say("track_admin_cd_retired", self.k.admin, n=done))
 
     # ------------------------------------------------------ mantenimiento
     async def loop(self):
+        await self._safe(self.sync_automator, "mandando la lista del Drive")
         await asyncio.sleep(300)
         while True:
             if self.enabled:
-                try:
-                    await self.maintain()
-                except Exception:
-                    log.exception("Fallo repasando los seguimientos")
-            await asyncio.sleep(MAINTAIN_EVERY + random.uniform(-600, 600))
+                await self._safe(self.maintain, "repasando los seguimientos")
+            # hasta el próximo repaso, reintenta la lista del Drive si no llegó
+            until = time.time() + MAINTAIN_EVERY + random.uniform(-600, 600)
+            while time.time() < until:
+                await asyncio.sleep(min(RESYNC_EVERY, max(1, until - time.time())))
+                if self._sync_pending:
+                    await self._safe(self.sync_automator, "reintentando la lista del Drive")
+
+    @staticmethod
+    async def _safe(fn, what: str):
+        try:
+            await fn()
+        except Exception:
+            log.exception("Fallo %s", what)
 
     async def maintain(self):
         groups: dict[str, list] = {}
@@ -241,6 +346,30 @@ class Tracker:
         for url, ts in groups.items():
             await self._maintain_one(url, ts)
             await asyncio.sleep(3)   # AniList limita a ~30 consultas por minuto
+        await self.retire_cd()
+        await self.refresh_cd_interval()
+        await self.sync_automator()
+
+    async def refresh_cd_interval(self):
+        """Si ha cambiado TRACKING_CHECK_MINUTES, se aplica también a los watches que ya existen."""
+        db = self.k.db
+        if not self.use_cd:
+            return
+        prev = db.kv_get(K_CD_MINUTES)
+        if prev is None or int(prev) == self.cd.check_minutes:
+            db.kv_set(K_CD_MINUTES, self.cd.check_minutes)
+            return
+        done: set[str] = set()
+        for t in db.track_list():
+            if t.owned and t.watch_uuid and t.watch_uuid not in done:
+                try:
+                    await self.cd.reschedule(t.watch_uuid, Schedule.from_dict(t.schedule))
+                except ChangeDetectionError as ex:
+                    log.warning("No pude cambiar el intervalo de %s: %s", t.title, ex)
+                    return   # se reintenta en el próximo repaso
+                done.add(t.watch_uuid)
+        log.info("Intervalo de change-detection: de %s a %s min en %s watch(es)", prev, self.cd.check_minutes, len(done))
+        db.kv_set(K_CD_MINUTES, self.cd.check_minutes)
 
     async def _maintain_one(self, url: str, ts: list):
         first, db = ts[0], self.k.db
@@ -264,17 +393,35 @@ class Tracker:
                 await self.k.messenger.send(self.k.admin, self._say("track_admin_ended", self.k.admin,
                                                                     title=first.title))
             return
-        if info and info.next_at and first.owned:
-            new = Schedule.from_airing(info.next_at, self.tz, self.window)
-            if new != Schedule.from_dict(first.schedule):
-                try:
-                    await self.cd.reschedule(first.watch_uuid, new)
-                except ChangeDetectionError as ex:
-                    log.warning("No pude reajustar el horario de %s: %s", first.title, ex)
-                    return
-                log.info("Nuevo horario para %s: %s", first.title, new.describe())
-                for t in ts:
-                    db.track_update(t.id, schedule=new.to_dict())
+        new = await self._fresh_schedule(first, info)
+        if new is None or new.to_dict() == (first.schedule or {}):
+            return
+        if self.use_cd and first.owned and first.watch_uuid:
+            try:
+                await self.cd.reschedule(first.watch_uuid, new)
+            except ChangeDetectionError as ex:
+                log.warning("No pude reajustar el horario de %s: %s", first.title, ex)
+                return
+        log.info("Nuevo horario para %s: %s", first.title, new.describe())
+        for t in ts:
+            db.track_update(t.id, schedule=new.to_dict())
+
+    async def _fresh_schedule(self, t, info) -> Schedule | None:
+        """
+        La ventana que toca ahora: la hora de AniList si la hay; si no, se
+        recalcula la del estreno (cambio de hora) y las antiguas de más de un día.
+        """
+        if info and info.next_at:
+            return Schedule.from_airing(info.next_at, self.tz, self.window)
+        old = t.schedule or {}
+        if old.get("source") != "estreno" and int(old.get("hours") or 0) <= Schedule.from_dict(old).hours:
+            return None
+        try:
+            d = (await self.k.site.details([t.post_id])).get(t.post_id)
+        except Exception:
+            log.warning("Sin ficha para recalcular el horario de %s", t.title, exc_info=True)
+            d = None
+        return (Schedule.from_premiere(d.premiere, self.tz) if d else None) or Schedule.from_dict(old)
 
 
 def _tz_name() -> str:

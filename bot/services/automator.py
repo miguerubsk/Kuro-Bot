@@ -1,4 +1,4 @@
-"""Cliente de Anime-Automator (/download, /check, /seasons) y cómo contar sus respuestas."""
+"""Cliente de Anime-Automator (/download, /check, /seasons, /watches) y cómo contar sus respuestas."""
 
 import html
 import logging
@@ -22,8 +22,9 @@ ERROR_TEXT = {
 
 
 class AutomatorClient:
-    def __init__(self, base_url: str):
+    def __init__(self, base_url: str, secret: str = ""):
         self.base = base_url.rstrip("/")
+        self.secret = secret   # el mismo CALLBACK_SECRET que firma /events
 
     async def _post(self, path: str, body: dict, timeout: float, connect: float = 10) -> dict:
         """
@@ -74,6 +75,32 @@ class AutomatorClient:
         log.info("Biblioteca para %s: %s", paste_url,
                  {k: data.get(k) for k in ("status", "name", "have", "available", "missing")})
         return data
+
+    async def sync_watches(self, watches: list[dict]) -> bool:
+        """
+        La lista completa de animes vigilados en el Drive (sustituye a la
+        anterior): [{"watch_url", "title", "schedule", "timezone"}].
+        """
+        try:
+            async with httpx.AsyncClient(timeout=20) as c:
+                r = await c.put(f"{self.base}/watches", json={"watches": watches},
+                                headers={"X-Callback-Secret": self.secret})
+            r.raise_for_status()
+            return True
+        except httpx.HTTPError as ex:
+            log.warning("No pude mandar los seguimientos a Anime-Automator: %s", ex)
+            return False
+
+    async def poll_watch(self, watch_url: str) -> dict:
+        """Que mire ya ese anime en el Drive, aunque esté fuera de su ventana."""
+        try:
+            async with httpx.AsyncClient(timeout=60) as c:
+                r = await c.post(f"{self.base}/watches/poll", json={"watch_url": watch_url},
+                                 headers={"X-Callback-Secret": self.secret})
+            return r.json()
+        except (httpx.HTTPError, ValueError) as ex:
+            log.warning("No pude pedir que se mire %s en el Drive: %s", watch_url, ex)
+            return {"status": "unreachable", "error": str(ex)}
 
     async def seasons(self, titles: list[str], budget: float = 12) -> list[dict]:
         """

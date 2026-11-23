@@ -18,28 +18,36 @@ MADRID = ZoneInfo("Europe/Madrid")
 
 
 class TestSchedule(unittest.TestCase):
-    def test_window_split_by_days(self):
-        # jueves 17:30 en Madrid, 48 h -> jueves 17:00-24:00, viernes entero, sábado hasta las 17:00
+    def test_window_is_one_day_at_most(self):
+        # jueves 17:30 en Madrid: de jueves 17:00 a viernes 17:00, aunque se pidan 48 h
         ts = datetime(2026, 11, 26, 17, 30, tzinfo=MADRID).timestamp()
         s = Schedule.from_airing(ts, MADRID, 48)
-        self.assertEqual(s.windows(), {3: (17 * 60, 7 * 60), 4: (0, 24 * 60), 5: (0, 17 * 60)})
+        self.assertEqual(s.windows(), {3: (17 * 60, 7 * 60), 4: (0, 17 * 60)})
         lim = s.time_schedule_limit("Europe/Madrid")
         self.assertTrue(lim["enabled"])
         self.assertEqual(lim["thursday"], {"enabled": True, "start_time": "17:00",
                                            "duration": {"hours": "7", "minutes": "00"}})
         self.assertFalse(lim["monday"]["enabled"])
-        self.assertEqual(s.describe(), "los jueves desde las 17:00, durante 48 h")
+        self.assertEqual(s.describe(), "los jueves desde las 17:00, durante 24 h")
+        self.assertEqual(Schedule.from_airing(ts, MADRID, 6).hours, 6)
 
     def test_wraps_the_week(self):
         ts = datetime(2026, 11, 29, 20, 0, tzinfo=MADRID).timestamp()   # domingo
-        # domingo 20:00 + 30 h: 4 h del domingo, el lunes entero y 2 h del martes
-        self.assertEqual(Schedule.from_airing(ts, MADRID, 30).windows(),
-                         {6: (20 * 60, 4 * 60), 0: (0, 24 * 60), 1: (0, 2 * 60)})
+        self.assertEqual(Schedule.from_airing(ts, MADRID, 24).windows(), {6: (20 * 60, 4 * 60), 0: (0, 20 * 60)})
 
-    def test_premiere_starts_the_day_before(self):
-        s = Schedule.from_premiere("2025-07-04", 48)                     # viernes
-        self.assertEqual((s.weekday, s.start_min, s.hours), (3, 0, 96))
-        self.assertIsNone(Schedule.from_premiere("?", 48))
+    def test_premiere_is_the_japanese_day(self):
+        # estreno en viernes (día de Japón): de jueves 16:00 a viernes 16:00 en Madrid en invierno…
+        winter = datetime(2026, 11, 23, tzinfo=MADRID)
+        s = Schedule.from_premiere("2025-07-04", MADRID, now=winter)
+        self.assertEqual((s.weekday, s.start_min, s.hours), (3, 16 * 60, 24))
+        self.assertIn("medianoche en Japón", s.describe())
+        # …y desde las 17:00 en verano
+        summer = Schedule.from_premiere("2025-07-04", MADRID, now=datetime(2026, 7, 1, tzinfo=MADRID))
+        self.assertEqual((summer.weekday, summer.start_min), (3, 17 * 60))
+        self.assertIsNone(Schedule.from_premiere("?", MADRID))
+
+    def test_old_long_windows_are_capped(self):
+        self.assertEqual(Schedule.from_dict({"weekday": 3, "start_min": 0, "hours": 96, "source": "estreno"}).hours, 24)
 
     def test_always_has_no_limit(self):
         self.assertFalse(Schedule.always().time_schedule_limit("Europe/Madrid")["enabled"])
@@ -48,7 +56,7 @@ class TestSchedule(unittest.TestCase):
     def test_payload_only_watches_the_episode_grid(self):
         cd = ChangeDetectionClient("http://cd", "k", tag="kuro", check_minutes=60)
         body = cd.payload("https://paste.japan-paw.net/?v=1", "X - Japan-Paw! Descarga Calidad",
-                          Schedule(3, 17 * 60, 48, "anilist"))
+                          Schedule(3, 17 * 60, 24, "anilist"))
         self.assertEqual(body["include_filters"], [FILTER])
         self.assertEqual(body["time_between_check"], {"minutes": 60})
         self.assertEqual(body["tag"], "kuro")
@@ -109,7 +117,7 @@ class AiringSite(FakeSite):
 
 class TrackingTest(KuroTest):
     def make(self, **cfg):
-        super().make(**cfg)
+        super().make(**{"tracking_sources": frozenset({"changedetection", "drive"}), **cfg})
         self.cd, self.airing = FakeCD(), FakeAiring()
         self.site = AiringSite()
         self.k.site = self.site
@@ -156,6 +164,7 @@ class TestTrackingFlow(TrackingTest):
         await self.press(Pick, CLIENT, "pick:12")
         self.assertFalse(any(d.startswith("tky:") for m in self.bot.sent for d in self.buttons(m)))
         self.k.tracker.cd = type("Off", (), {"enabled": False})()
+        self.k.tracker.sources = frozenset({"changedetection"})
         await self.press(Pick, ADMIN, "pick:11")
         self.assertFalse(any(d.startswith("tky:") for m in self.bot.sent for d in self.buttons(m)))
 
@@ -295,6 +304,82 @@ class TestMaintenance(TrackingTest):
         self.airing.status, self.airing.next_at = "FINISHED", None
         await self.k.tracker.maintain()
         self.assertEqual(self.k.db.track_get(1).status, TrackStatus.ACTIVE)   # dos semanas de margen
+
+
+class TestDrive(TrackingTest):
+    URL = "https://paste.japan-paw.net/?v=11"
+
+    async def activate(self, chat=ADMIN):
+        await self.press(Pick, chat, "pick:11")
+        await self.press(TrackYes, chat, "tky:1", message=self.offer_msg(chat))
+        if chat != ADMIN:
+            await self.press(TrackDecision, ADMIN, "tka:1", message=self.track_admin_msg())
+
+    async def test_list_is_sent_on_activate_and_stop(self):
+        await self.activate()
+        (w,) = self.automator.synced[-1]
+        self.assertEqual((w["watch_url"], w["title"], w["timezone"]),
+                         (self.URL, "Post 11 - Japan-Paw! Descarga Calidad", "Europe/Madrid"))
+        self.assertEqual((w["schedule"]["weekday"], w["schedule"]["start_min"], w["schedule"]["hours"]),
+                         (3, 17 * 60, 24))
+        self.assertEqual(self.k.db.track_get(1).watch_title, w["title"])
+        await self.k.tracker.stop(self.k.db.track_get(1))
+        self.assertEqual(self.automator.synced[-1], [])
+
+    async def test_drive_only_needs_no_changedetection(self):
+        self.k.tracker.sources = frozenset({"drive"})
+        self.k.tracker.cd = type("Off", (), {"enabled": False})()
+        await self.activate(CLIENT)
+        t = self.k.db.track_get(1)
+        self.assertEqual((t.status, t.watch_uuid), (TrackStatus.ACTIVE, ""))
+        self.assertFalse(self.cd.created)
+        self.assertEqual(len(self.automator.synced[-1]), 1)
+
+    async def test_failed_sync_is_retried(self):
+        self.automator.sync_ok = False
+        await self.activate()
+        self.assertTrue(self.k.tracker._sync_pending)
+        self.automator.sync_ok = True
+        await self.k.tracker.sync_automator()
+        self.assertFalse(self.k.tracker._sync_pending)
+
+    async def test_phase_out_changedetection(self):
+        await self.activate()
+        self.k.tracker.sources = frozenset({"drive"})
+        await self.k.tracker.maintain()
+        self.assertEqual(self.cd.deleted, ["w1"])
+        self.assertEqual(self.k.db.track_get(1).watch_uuid, "")
+        self.assertIn("change-detection", self.bot.to(ADMIN)[-1].text)
+        await self.k.tracker.maintain()
+        self.assertEqual(self.cd.deleted, ["w1"])          # solo una vez
+        self.assertEqual(len(self.automator.synced[-1]), 1)
+
+    async def test_back_to_changedetection_only_empties_the_drive_list(self):
+        await self.activate()
+        self.k.tracker.sources = frozenset({"changedetection"})
+        await self.k.tracker.sync_automator()
+        self.assertEqual(self.automator.synced[-1], [])
+        n = len(self.automator.synced)
+        await self.k.tracker.sync_automator()
+        self.assertEqual(len(self.automator.synced), n)    # ya vaciada: no insiste
+
+    async def test_new_check_interval_reaches_existing_watches(self):
+        await self.activate()
+        await self.k.tracker.maintain()                    # apunta el intervalo actual
+        self.assertFalse(self.cd.rescheduled)
+        self.cd.check_minutes = 180
+        await self.k.tracker.maintain()
+        self.assertEqual(len(self.cd.rescheduled), 1)
+        await self.k.tracker.maintain()
+        self.assertEqual(len(self.cd.rescheduled), 1)
+
+    async def test_old_two_day_windows_are_shrunk(self):
+        await self.activate()
+        self.k.db.track_update(1, schedule={"weekday": 3, "start_min": 17 * 60, "hours": 48, "source": "anilist"})
+        await self.k.tracker.maintain()
+        self.assertEqual(self.k.db.track_get(1).schedule["hours"], 24)
+        self.assertEqual(len(self.cd.rescheduled), 1)
+        self.assertEqual(self.automator.synced[-1][0]["schedule"]["hours"], 24)
 
 
 class TestBypass(unittest.IsolatedAsyncioTestCase):

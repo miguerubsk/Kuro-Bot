@@ -35,7 +35,9 @@ class Settings:
     cd_fetch_backend: str = ""
     cd_notify_url: str = ""
     tracking_limit: int = 2
-    tracking_window_hours: int = 48
+    tracking_window_hours: int = 24    # como mucho 24 (Schedule.MAX_HOURS)
+    # quién vigila: change-detection (la página de pastes) y/o Anime-Automator (la unidad de Drive)
+    tracking_sources: frozenset = frozenset({"changedetection", "drive"})
     tracking_check_minutes: int = 60
     # proxy para cuando la web nos bloquea (p. ej. Tor: socks5://host:9050); vacío = sin proxy
     bypass_proxy: str = ""
@@ -67,9 +69,21 @@ def load() -> Settings:
             cd_fetch_backend=os.environ.get("CHANGEDETECTION_FETCH_BACKEND", "").strip(),
             cd_notify_url=os.environ.get("CHANGEDETECTION_NOTIFY_URL", "").strip(),
             tracking_limit=int(os.environ.get("TRACKING_LIMIT", "2") or 2),
-            tracking_window_hours=int(os.environ.get("TRACKING_WINDOW_HOURS", "48") or 48),
+            tracking_window_hours=int(os.environ.get("TRACKING_WINDOW_HOURS", "24") or 24),
+            tracking_sources=_sources(os.environ.get("TRACKING_SOURCES", "changedetection,drive")),
             bypass_proxy=os.environ.get("BLOCK_BYPASS_PROXY", "").strip(),
             tracking_check_minutes=int(os.environ.get("TRACKING_CHECK_MINUTES", "60") or 60),
         )
     except ValueError as e:
         sys.exit(f"Valor inválido en el .env (los ids de chat, WEEKLY_LIMIT y TRACKING_* deben ser números): {e}")
+
+
+TRACKING_SOURCES = ("changedetection", "drive")
+
+
+def _sources(raw: str) -> frozenset:
+    out = frozenset(x.strip().lower() for x in raw.split(",") if x.strip())
+    bad = out - set(TRACKING_SOURCES)
+    if bad:
+        sys.exit(f"TRACKING_SOURCES solo admite {', '.join(TRACKING_SOURCES)} (sobra: {', '.join(sorted(bad))})")
+    return out

@@ -73,9 +73,20 @@ def parse_post_html(page_html: str, post_id: int, url: str, fallback_title: str 
 
     return PostInfo(
         post_id=post_id, title=title or page_title, url=url, paste_url=paste_url, paste_id=paste_id,
-        airing="category-en-emision" in classes, label=" ".join(label_parts),
+        airing="category-en-emision" in classes or _ficha_says_airing(article), label=" ".join(label_parts),
         movie="category-pelicula" in classes,
     )
+
+
+def _ficha_says_airing(article) -> bool:
+    """
+    La web no siempre pone la categoría «en emisión» al post, pero la ficha
+    sí lo dice («Episodios: En emisión»). Solo la del propio post (no las de
+    los relacionados).
+    """
+    if article is None:
+        return False
+    return "emisi" in (parse_details(str(article)).episodes or "").lower()
 
 
 def parse_details(content_html: str) -> Details:

@@ -44,6 +44,7 @@ KEY_ARGS = {
     "track_list_limit": {"count", "limit"}, "track_admin_request": {"who", "title"},
     "track_admin_joined": {"who", "title"}, "track_admin_approved": {"title"}, "track_admin_rejected": {"title"},
     "track_admin_failed": {"title"}, "track_admin_ended": {"title"}, "track_admin_delete_failed": {"title"},
+    "track_admin_cd_retired": {"n"},
     "lonely_back": {"days"}, "lonely_back_hurt": {"days"}, "lonely_back_drama": {"days"},
 }
 PLAIN_KEYS = {"not_authorized", "already_decided", "track_gone"}   # van en alertas: sin HTML
