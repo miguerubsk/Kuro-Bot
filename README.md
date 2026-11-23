@@ -53,6 +53,21 @@ Los dos acaban en el mismo encolado, que nunca baja dos veces lo mismo.
    Los watches de change-detection se vuelven a crear al reactivar cada seguimiento (o
    añadiéndolos a mano); los activos no se recrean solos.
 
+## Por torrent (lo que no está en la web)
+Si la búsqueda no encuentra nada, Kuro enseña las opciones de AniList (series, no películas) y,
+al elegir una, pregunta a Anime-Automator qué hay por torrent (`POST /torrent/check`, con
+`CALLBACK_SECRET`): capítulos, temporada y carpeta. Al confirmar es un encargo normal (un carro,
+visto bueno del admin, avisos de cada capítulo) que va a `POST /torrent/download`.
+
+- Anime-Automator elige el release de cada capítulo: Erai-raws > subtítulos múltiples > WEB-DL > 1080p.
+  Descarta doblajes y todo lo que no anuncie subtítulos en español (Erai-raws los trae aunque no
+  lo diga); si aun así un archivo llega sin ellos, ese capítulo falla y se avisa.
+- La temporada sale de las precuelas de AniList. El admin la cambia con las flechas antes de
+  pedirlo (lo suyo) o en el mensaje de aprobación (lo de un cliente).
+- `TORRENT_ACCESS`: `admin` (por defecto, solo tú), `all` (también los clientes) u `off`.
+- A los clientes se les dice que va «por los tejados (torrent)» y que tarda más; nunca se nombra la web.
+- Aún no: películas y lotes («01 ~ 11», lo único que hay de muchas series viejas).
+
 ## Bloqueos
 Si la web da un certificado falso (bloqueo de LaLiga), se busca otra IP de Cloudflare por DoH.
 Si nos niega el acceso (403) y no hay IP libre, se usa `BLOCK_BYPASS_PROXY` (p. ej. Tor)
@@ -89,6 +104,7 @@ Para reiniciar rápido, copia `restart.sh.example` a `restart.sh`.
   cuando cuenta algo de su vida: a los clientes, más cuantos más animes se les han bajado
   (`TRUST_STEPS`); contigo, batallitas con animes que se bajaron de verdad.
 - `bot/services/`: Anime-Automator, la web de búsqueda y AniList.
+- `bot/orders/torrent.py` y `bot/handlers/torrent.py`: encargos por torrent.
 - `bot/events/`: avisos de progreso de Anime-Automator (`POST /events`).
 - `bot/tracking/`: seguimiento semanal (change-detection) y su horario.
 

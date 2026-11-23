@@ -63,3 +63,8 @@ class Kuro:
 
     def is_admin(self, chat_id: int) -> bool:
         return chat_id == self.admin
+
+    def torrent_allowed(self, chat_id: int) -> bool:
+        """¿Puede pedir por torrent lo que no está en la web? (TORRENT_ACCESS)"""
+        mode = self.cfg.torrent_access
+        return mode == "all" or (mode == "admin" and self.is_admin(chat_id))

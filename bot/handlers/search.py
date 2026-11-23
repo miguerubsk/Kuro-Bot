@@ -3,8 +3,11 @@
 import asyncio
 import logging
 
+from telegram import InlineKeyboardMarkup
 from telegram.error import BadRequest
 
+from ..orders.torrent import OFFER as TORRENT_OFFER
+from ..ui.keyboards import button, cancel_row
 from ..ui.results import ResultsBuilder
 from .base import Access, ButtonCommand, ChatCommand, TextCommand, register
 
@@ -29,7 +32,7 @@ class SearchMixin:
             log.exception("Fallo buscando %r", query)
             return await status.edit_text(ctx.say("search_error"), parse_mode="HTML")
         if not results:
-            return await status.edit_text(ctx.say("not_found", query=query), parse_mode="HTML")
+            return await self.not_found(ctx, status, query)
 
         found, details = await asyncio.gather(ResultsBuilder(k).build(ctx.session, results),
                                               k.site.details([r.post_id for r in results]))
@@ -42,6 +45,18 @@ class SearchMixin:
             except Exception:
                 log.exception("No se pudieron enseñar las fichas; va la lista de siempre")
         await status.edit_text(intro + ctx.say("pick") + outro, parse_mode="HTML", reply_markup=found.keyboard())
+
+
+    async def not_found(self, ctx, status, query: str):
+        """Sin resultados en la web: si se puede, las opciones de AniList para buscarlo por torrent."""
+        text = ctx.say("not_found", query=query)
+        options = await self.k.tracker.airing.options(query) if self.k.torrent_allowed(ctx.chat_id) else None
+        if not options:
+            return await status.edit_text(text, parse_mode="HTML")
+        rows = [[button(o.label(), f"{TORRENT_OFFER}:{o.anilist_id}", width=60)] for o in options]
+        rows.append(cancel_row())
+        await status.edit_text(text + "\n\n" + ctx.say("torrent_pick"), parse_mode="HTML",
+                               reply_markup=InlineKeyboardMarkup(rows))
 
 
 @register

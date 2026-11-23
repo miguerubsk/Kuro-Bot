@@ -21,6 +21,53 @@ query ($s: String) {{
 }}
 """
 BY_ID = f"query ($id: Int) {{ Media(id: $id, type: ANIME) {{ {_FIELDS} }} }}"
+OPTIONS = """
+query ($s: String) {
+  Page(perPage: 8) { media(search: $s, type: ANIME, sort: SEARCH_MATCH, isAdult: false) {
+    id status episodes format title { romaji english } startDate { year } } }
+}
+"""
+OPTION_BY_ID = """
+query ($id: Int) { Media(id: $id, type: ANIME) { id status episodes format title { romaji english } startDate { year } } }
+"""
+# lo que se puede pedir por torrent (por número de capítulo: nada de películas)
+SERIES_FORMATS = ("TV", "TV_SHORT", "ONA", "OVA", "SPECIAL")
+FORMAT_TEXT = {"TV": "TV", "TV_SHORT": "TV corta", "ONA": "ONA", "OVA": "OVA", "SPECIAL": "especial"}
+
+
+@dataclass
+class Option:
+    """Un anime de AniList para elegir cuando la web no lo tiene."""
+    anilist_id: int
+    title: str
+    english: str
+    format: str
+    episodes: int | None
+    year: int | None
+    status: str
+
+    @property
+    def releasing(self) -> bool:
+        return self.status == "RELEASING"
+
+    def label(self) -> str:
+        """«Kono Oto Tomare! 2 · 2019 · TV · 13 caps.» (o «en emisión»)."""
+        parts = [self.title]
+        if self.year:
+            parts.append(str(self.year))
+        parts.append(FORMAT_TEXT.get(self.format, self.format.lower()))
+        if self.releasing:
+            parts.append("en emisión")
+        elif self.episodes:
+            parts.append(f"{self.episodes} caps.")
+        return " · ".join(parts)
+
+    @classmethod
+    def from_media(cls, m: dict) -> "Option":
+        t = m.get("title") or {}
+        return cls(int(m["id"]), t.get("romaji") or t.get("english") or "?", t.get("english") or "",
+                   m.get("format") or "", m.get("episodes"), (m.get("startDate") or {}).get("year"),
+                   m.get("status") or "")
 
 
 @dataclass
@@ -91,6 +138,20 @@ class AiringClient:
             if want in {title_key(n) for n in _names(m)}:
                 return Airing.from_media(m)
         return None
+
+    async def options(self, query: str, limit: int = 6) -> list[Option] | None:
+        """Animes (no películas) que encajan con la búsqueda; None si AniList no responde."""
+        data = await self._query(OPTIONS, {"s": query}, timeout=8)
+        if data is None:
+            return None
+        media = ((data.get("Page") or {}).get("media")) or []
+        return [Option.from_media(m) for m in media
+                if m.get("format") in SERIES_FORMATS and m.get("status") != "NOT_YET_RELEASED"][:limit]
+
+    async def option(self, anilist_id: int) -> Option | None:
+        data = await self._query(OPTION_BY_ID, {"id": anilist_id}, timeout=8)
+        m = (data or {}).get("Media")
+        return Option.from_media(m) if m else None
 
     async def by_id(self, anilist_id: int) -> Airing | None:
         data = await self._query(BY_ID, {"id": anilist_id})

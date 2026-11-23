@@ -28,6 +28,8 @@ class Texts:
             blocks = [say("help_intro_boss"), say("help_how_boss")]
             if tracking:
                 blocks.append(say("help_track_boss"))
+            if self.k.torrent_allowed(chat_id):
+                blocks.append(say("help_torrent_boss"))
             blocks += [say("help_rules_head") + "\n" + say("help_admin"),
                        say("help_clients_head") + "\n" + "\n".join(clients),
                        say("help_commands_head") + "\n" + "\n".join(commands)]
@@ -40,6 +42,8 @@ class Texts:
         blocks = [say("help_intro_client"), say("help_how")]
         if tracking:
             blocks.append(say("help_track", limit=self.k.tracker.limit))
+        if self.k.torrent_allowed(chat_id):
+            blocks.append(say("help_torrent"))
         blocks += [say("help_rules_head") + "\n" + say("help_user", limit=self.k.quota.limit),
                    say("help_commands_head") + "\n" + "\n".join(commands)]
         return "\n\n".join(blocks)
@@ -60,6 +64,10 @@ class Texts:
         return f" ({'🎬 ' if post.movie else ''}{post.label})" if post.label else (" (🎬)" if post.movie else "")
 
     def admin_request(self, req) -> str:
+        if req.torrent:
+            kind = "🧲 por torrent" + (", en emisión" if req.airing else "")
+            return (self._say("admin_request", self.k.admin, who=req.user_name, req_id=req.id)
+                    + f"\n<b>{e(req.title)}</b> — <b>T{e(req.season or '1')}</b>\nTipo: {kind}\n{e(req.post_url)}")
         label = f" — {e(req.label)}" if req.label else ""
         kind = "película" if req.movie else ("en emisión" if req.airing else "serie")
         return (self._say("admin_request", self.k.admin, who=req.user_name, req_id=req.id)

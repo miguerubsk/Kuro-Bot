@@ -53,6 +53,11 @@ class ChatSession:
         return self._bucket("groups")
 
     @property
+    def torrent(self) -> dict[str, dict]:
+        """«anilist_id:temporada» -> lo que se ofreció por torrent (para el botón de pedirlo)."""
+        return self._bucket("torrent")
+
+    @property
     def decks(self) -> dict[int, Deck]:
         return self._bucket("cards")
 

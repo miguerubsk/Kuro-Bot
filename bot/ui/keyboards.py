@@ -30,3 +30,19 @@ def yes_no(yes_label: str, yes_data: str, no_label: str, no_data: str) -> Inline
 
 def in_pairs(buttons: list) -> list[list]:
     return [buttons[i:i + 2] for i in range(0, len(buttons), 2)]
+
+
+def shift_season(season: str, delta: int) -> str:
+    """La temporada de al lado ("2" + 1 -> "3"; "1.5" - 1 -> "1"), nunca menos de 1."""
+    try:
+        n = int(float(season or 1))
+    except ValueError:
+        n = 1
+    return str(max(1, n + delta))
+
+
+def season_row(prefix: str, ident: int, season: str) -> list[InlineKeyboardButton]:
+    """◀️ T1 · T3 ▶️ para corregir la temporada (solo el admin): «prefijo:ident:temporada»."""
+    lower, upper = shift_season(season, -1), shift_season(season, 1)
+    row = [] if lower == season else [button(f"◀️ T{lower}", f"{prefix}:{ident}:{lower}")]
+    return row + [button(f"T{upper} ▶️", f"{prefix}:{ident}:{upper}")]

@@ -52,6 +52,13 @@ class Request:
     movie: bool = False
     bundle_id: int = 0
     quota_exempt: bool = False
+    source: str = ""           # "" = la web de siempre; "torrent" = por AniList y torrent
+    anilist_id: int = 0
+    season: str = ""           # temporada (solo torrent; el admin la puede corregir)
+
+    @property
+    def torrent(self) -> bool:
+        return self.source == "torrent"
 
 
 class TrackStatus:

@@ -18,6 +18,7 @@ from bot.handlers.admin import Alta, Descargados, HistoryPage, Pendientes
 from bot.handlers.general import Cupo, Help, Start
 from bot.handlers.orders import Decision, Pick, PickAll
 from bot.handlers.search import CardPage, Cancel, FreeText
+from bot.handlers.torrent import TorrentGo, TorrentPick, TorrentSeason
 from bot.kuro import Kuro
 from bot.services.japanpaw import Details, PostInfo, SearchResult
 
@@ -119,9 +120,34 @@ class FakeAutomator:
     async def poll_watch(self, watch_url):
         return {"status": "ok"}
 
+    torrent_result = {"status": "missing", "name": "Kono Oto Tomare!", "season": "2", "missing": [1, 2, 3],
+                      "found": [1, 2, 3], "have": 0, "preferred": 3, "groups": {"Erai-raws": 3},
+                      "folder": "Anime/Kono Oto Tomare!/Temporada 2"}
+    torrent_download_result = {"status": "queued", "name": "Kono Oto Tomare!", "queued": [1, 2, 3],
+                               "tracked": True, "available": 3, "have": 0, "season": "2"}
+
+    async def torrent_check(self, anilist_id, season=None):
+        self.torrent_checks = getattr(self, "torrent_checks", []) + [(anilist_id, season)]
+        return dict(self.torrent_result, **({"season": season} if season else {}))
+
+    async def torrent_download(self, anilist_id, season=None, job_id=None):
+        self.torrent_downloads = getattr(self, "torrent_downloads", []) + [(anilist_id, season, job_id)]
+        return dict(self.torrent_download_result)
+
 
 class NoAiring:
-    """AniList sin respuesta (las pruebas no salen a internet)."""
+    """AniList sin respuesta (las pruebas no salen a internet), salvo las opciones para torrent."""
+    def __init__(self):
+        from bot.services.airing import Option
+        self.opts = [Option(108891, "Kono Oto Tomare! 2", "Koto: The Sound of Life 2", "TV", 13, 2019, "FINISHED"),
+                     Option(209463, "Kanata Kara", "", "TV", None, 2026, "RELEASING")]
+
+    async def options(self, query, limit=6):
+        return list(self.opts)
+
+    async def option(self, anilist_id):
+        return next((o for o in self.opts if o.anilist_id == anilist_id), None)
+
     async def exact(self, title):
         return None
 
@@ -457,3 +483,84 @@ class TestMessenger(KuroTest):
 
 if __name__ == "__main__":
     asyncio.run(unittest.main())
+
+
+class TestTorrent(KuroTest):
+    async def not_found(self, chat_id):
+        self.site.results = []
+        await self.type(FreeText, chat_id, "kono oto tomare 2")
+        return self.bot.to(chat_id)[-1]
+
+    async def test_only_the_boss_gets_the_torrent_way_by_default(self):
+        msg = await self.not_found(ADMIN)
+        self.assertEqual(self.buttons(msg), ["trt:108891", "trt:209463", "cancel"])
+        self.assertIn("en emisión", msg.reply_markup.inline_keyboard[1][0].text)
+        self.assertNotIn("nyaa", msg.text.lower())
+        msg = await self.not_found(CLIENT)
+        self.assertEqual(self.buttons(msg), [])
+
+    async def test_disabled(self):
+        self.make(torrent_access="off")
+        self.assertEqual(self.buttons(await self.not_found(ADMIN)), [])
+
+    async def test_boss_checks_corrects_season_and_orders(self):
+        q = await self.press(TorrentPick, ADMIN, "trt:108891")
+        self.assertIn("trg:108891:2", self.buttons(q.message))
+        self.assertIn("trt:108891:1", self.buttons(q.message))      # corregir la temporada
+        self.assertIn("trt:108891:3", self.buttons(q.message))
+        self.assertIn("1-3", q.message.text)
+        q = await self.press(TorrentPick, ADMIN, "trt:108891:3", message=q.message)
+        self.assertEqual(self.automator.torrent_checks[-1], (108891, "3"))
+        self.assertIn("trg:108891:3", self.buttons(q.message))
+
+        await self.press(TorrentGo, ADMIN, "trg:108891:3", message=q.message)
+        req = self.k.db.get(1)
+        self.assertEqual((req.source, req.anilist_id, req.season, req.post_id), ("torrent", 108891, "3", -108891))
+        self.assertEqual(self.automator.torrent_downloads, [(108891, "3", 1)])
+        self.assertEqual(self.automator.downloads, [])
+        self.assertEqual(req.status, Status.APPROVED)
+
+    async def test_client_order_admin_fixes_season_then_approves(self):
+        self.make(torrent_access="all")
+        q = await self.press(TorrentPick, CLIENT, "trt:108891")
+        self.assertNotIn("trt:108891:3", self.buttons(q.message))   # la temporada solo la toca el admin
+        await self.press(TorrentGo, CLIENT, "trg:108891:2", message=q.message)
+        self.assertEqual(self.k.db.get(1).status, Status.PENDING)
+        self.assertEqual(self.k.quota.remaining(CLIENT), 2)
+        admin_msg = self.admin_request_msg()
+        self.assertEqual(self.buttons(admin_msg), ["ok:1", "no:1", "trs:1:1", "trs:1:3"])
+        self.assertIn("Erai-raws", admin_msg.text)
+        self.assertIn("anilist.co/anime/108891", admin_msg.text)
+
+        q = await self.press(TorrentSeason, ADMIN, "trs:1:3", message=admin_msg)
+        self.assertEqual(self.k.db.get(1).season, "3")
+        self.assertIn("T3", q.message.text)
+        await self.press(Decision, ADMIN, "ok:1", message=q.message)
+        self.assertEqual(self.automator.torrent_downloads, [(108891, "3", 1)])
+        self.assertIn("torrent", self.bot.to(CLIENT)[-1].text)
+
+    async def test_nothing_with_spanish_subs_gives_the_cart_back(self):
+        self.make(torrent_access="all")
+        q = await self.press(TorrentPick, CLIENT, "trt:108891")
+        await self.press(TorrentGo, CLIENT, "trg:108891:2", message=q.message)
+        self.automator.torrent_download_result = {"status": "nothing_found", "name": "Kono Oto Tomare!"}
+        await self.press(Decision, ADMIN, "ok:1", message=self.admin_request_msg())
+        self.assertEqual(self.k.db.get(1).status, Status.FAILED)
+        self.assertEqual(self.k.quota.remaining(CLIENT), 3)
+
+    async def test_offer_states(self):
+        for status, expect in (("nothing_found", "español"), ("unsupported", "series")):
+            with self.subTest(status=status):
+                self.automator.torrent_result = {"status": status, "name": "X"}
+                q = await self.press(TorrentPick, ADMIN, "trt:5")
+                self.assertIn(expect, q.message.text)
+                self.assertEqual(self.buttons(q.message), [])
+
+    async def test_order_button_needs_the_offer(self):
+        q = await self.press(TorrentGo, ADMIN, "trg:108891:2")
+        self.assertEqual(self.k.db.get(1), None)
+        self.assertTrue(q.message.text)
+
+    async def test_client_cannot_press_old_buttons_when_admin_only(self):
+        q = await self.press(TorrentPick, CLIENT, "trt:108891")
+        self.assertFalse(getattr(self.automator, "torrent_checks", []))

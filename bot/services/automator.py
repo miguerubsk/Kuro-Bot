@@ -1,4 +1,4 @@
-"""Cliente de Anime-Automator (/download, /check, /seasons, /watches) y cómo contar sus respuestas."""
+"""Cliente de Anime-Automator (/download, /check, /seasons, /watches, /torrent) y cómo contar sus respuestas."""
 
 import html
 import logging
@@ -18,6 +18,14 @@ ERROR_TEXT = {
     "bad_url": "el enlace no es válido",
     "unreachable": "el servicio de descargas no responde",
     "http_error": "el servicio de descargas devolvió un error",
+    # por torrent
+    "nothing_found": "no hay torrents con subtítulos en español",
+    "unsupported": "por torrent solo van series (no películas)",
+    "not_found": "AniList no conoce ese anime",
+    "anilist_down": "AniList no responde",
+    "transmission_failed": "Transmission no acepta los torrents",
+    "unauthorized": "Anime-Automator no acepta el CALLBACK_SECRET",
+    "bad_request": "petición mal formada",
 }
 
 
@@ -26,14 +34,15 @@ class AutomatorClient:
         self.base = base_url.rstrip("/")
         self.secret = secret   # el mismo CALLBACK_SECRET que firma /events
 
-    async def _post(self, path: str, body: dict, timeout: float, connect: float = 10) -> dict:
+    async def _post(self, path: str, body: dict, timeout: float, connect: float = 10, signed: bool = False) -> dict:
         """
         POST con JSON. Nunca lanza: si no responde, {"status": "unreachable"}; si
         responde algo que no es un JSON con "status", {"status": "http_error"}.
         """
+        headers = {"X-Callback-Secret": self.secret} if signed else None
         try:
             async with httpx.AsyncClient(timeout=httpx.Timeout(timeout, connect=connect)) as c:
-                r = await c.post(f"{self.base}{path}", json=body)
+                r = await c.post(f"{self.base}{path}", json=body, headers=headers)
         except httpx.HTTPError as ex:
             log.warning("Anime-Automator no responde a %s: %s", path, ex)
             return {"status": "unreachable", "error": str(ex)}
@@ -74,6 +83,31 @@ class AutomatorClient:
         data = await self._post("/check", self._body(paste_url, movie, title), timeout=120)
         log.info("Biblioteca para %s: %s", paste_url,
                  {k: data.get(k) for k in ("status", "name", "have", "available", "missing")})
+        return data
+
+    @staticmethod
+    def _torrent_body(anilist_id: int, season: str | None, **extra) -> dict:
+        body = {"anilist_id": int(anilist_id), **{k: v for k, v in extra.items() if v is not None}}
+        if season:
+            body["season"] = season
+        return body
+
+    async def torrent_check(self, anilist_id: int, season: str | None = None) -> dict:
+        """
+        Qué capítulos hay por torrent de esa entrada de AniList, sin descargar:
+        "missing" (con "missing", "found", "season", "folder"...), "nothing_new",
+        "in_progress", "nothing_found" o un error.
+        """
+        data = await self._post("/torrent/check", self._torrent_body(anilist_id, season), timeout=240, signed=True)
+        log.info("Torrent para AniList %s: %s", anilist_id,
+                 {k: data.get(k) for k in ("status", "name", "season", "found", "missing")})
+        return data
+
+    async def torrent_download(self, anilist_id: int, season: str | None = None, job_id: int | None = None) -> dict:
+        """Lo mismo, y pone a descargar lo que falte (progreso por /events, como /download)."""
+        body = self._torrent_body(anilist_id, season, job_id=None if job_id is None else str(job_id))
+        data = await self._post("/torrent/download", body, timeout=300, signed=True)
+        log.info("Descarga por torrent de AniList %s: %s", anilist_id, data)
         return data
 
     async def sync_watches(self, watches: list[dict]) -> bool:
@@ -156,4 +190,29 @@ def describe(result: dict, fallback_name: str, for_admin: bool = False) -> str:
     txt = f"❌ No se pudo encolar <b>{name}</b>: {reason}."
     if for_admin and result.get("error"):
         txt += f"\n<code>{html.escape(str(result['error']))[:500]}</code>"
+    return txt
+
+
+def describe_torrent(result: dict, fallback_name: str) -> str:
+    """Lo mismo para el admin, en una petición por torrent (con temporada y grupos)."""
+    st = result.get("status")
+    name = html.escape(result.get("name") or fallback_name)
+    if st == "in_progress":
+        txt = f"⏳ <b>{name}</b>: lo que falta ya se está descargando."
+    elif st == "missing":   # consulta: aún no se ha pedido nada
+        txt = f"🧲 <b>{name}</b>: faltan {compress_ranges(result.get('missing') or [])}."
+    else:
+        txt = describe(result, fallback_name, for_admin=True)
+    extra = []
+    if result.get("season"):
+        extra.append(f"T{html.escape(str(result['season']))}")
+    groups = result.get("groups") or {}
+    if groups:
+        extra.append(", ".join(f"{html.escape(g)} ×{n}" for g, n in sorted(groups.items(), key=lambda x: -x[1])))
+    if result.get("not_added"):
+        extra.append(f"Transmission no aceptó {compress_ranges(result['not_added'])}")
+    if extra:
+        txt += "\n🧲 Torrent · " + " · ".join(extra)
+    if result.get("folder") and "Carpeta:" not in txt:
+        txt += f"\nCarpeta: <code>{html.escape(result['folder'])}</code>"
     return txt

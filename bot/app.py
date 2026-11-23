@@ -107,6 +107,7 @@ def main():
         watchers.append("el Drive (Anime-Automator)")
     log.info("Seguimiento semanal: %s; ventana de %s h", " + ".join(watchers) or "desactivado",
              min(cfg.tracking_window_hours, 24))
-    log.info("Arrancando Kuro (admin=%s, lista blanca=%s, palabra clave=%s, límite=%s/semana)",
-             cfg.admin_chat_id, len(cfg.allowed_chat_ids), "sí" if cfg.access_keyword else "no", cfg.weekly_limit)
+    log.info("Arrancando Kuro (admin=%s, lista blanca=%s, palabra clave=%s, límite=%s/semana, torrent=%s)",
+             cfg.admin_chat_id, len(cfg.allowed_chat_ids), "sí" if cfg.access_keyword else "no", cfg.weekly_limit,
+             cfg.torrent_access)
     KuroBot(Kuro(cfg)).build().run_polling(allowed_updates=Update.ALL_TYPES)

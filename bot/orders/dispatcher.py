@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from ..core.models import Status
 from ..core.text import compress_ranges
-from ..services.automator import describe
+from ..services.automator import describe, describe_torrent
 
 
 @dataclass
@@ -25,10 +25,14 @@ class Dispatcher:
         """
         db, to = self.k.db, req.chat_id
         say = self.k.persona.to(to)
-        result = await self.k.automator.request_download(req.paste_url, job_id=req.id, movie=req.movie,
-                                                         title=req.title)
+        if req.torrent:
+            result = await self.k.automator.torrent_download(req.anilist_id, req.season or None, job_id=req.id)
+            admin_txt = describe_torrent(result, req.title)
+        else:
+            result = await self.k.automator.request_download(req.paste_url, job_id=req.id, movie=req.movie,
+                                                             title=req.title)
+            admin_txt = describe(result, req.title, for_admin=True)
         st = result.get("status")
-        admin_txt = describe(result, req.title, for_admin=True)
         queued = result.get("queued") or []
         movie = req.movie or result.get("kind") == "movie"
 
@@ -43,14 +47,18 @@ class Dispatcher:
                            ranges=compress_ranges(queued))
             db.set_status(req.id, Status.APPROVED if tracked else Status.COMPLETED)
             airing = "" if movie else self.k.texts.airing_note(to, req.airing, req.label)
-            return Outcome(True, admin_txt, approved + "\n" + body + airing)
+            slow = ("\n\n" + say("torrent_slow")) if req.torrent else ""
+            return Outcome(True, admin_txt, approved + "\n" + body + airing + slow)
 
-        if st == "queued":  # todo lo que falta ya estaba en cola por otra petición
+        if st in ("queued", "in_progress"):  # todo lo que falta ya estaba en cola por otra petición
             db.set_status(req.id, Status.NOTHING_NEW)
             return Outcome(True, admin_txt, say("already_downloading", title=req.title))
         if st == "nothing_new":
             db.set_status(req.id, Status.NOTHING_NEW)
             return Outcome(True, admin_txt, say("movie_already" if movie else "nothing_new", title=req.title))
+        if st == "nothing_found":   # por torrent: no hay nada con subtítulos en español (no gasta carro)
+            db.set_status(req.id, Status.FAILED)
+            return Outcome(False, admin_txt, say("torrent_none", title=req.title))
 
         db.set_status(req.id, Status.FAILED)
         return Outcome(False, admin_txt, say("tech_failure", title=req.title))

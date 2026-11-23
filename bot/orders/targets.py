@@ -11,8 +11,11 @@ from telegram import InlineKeyboardMarkup
 
 from ..core.models import Status
 from ..core.text import e
-from ..ui.keyboards import yes_no
+from ..ui.keyboards import season_row, yes_no
 from .dispatcher import Outcome
+
+# corregir la temporada de un encargo por torrent sin decidir (no cambiarlo: botones viejos)
+TORRENT_SEASON = "trs"
 
 
 class Target(ABC):
@@ -99,6 +102,12 @@ class SingleTarget(Target):
 
     def admin_text(self):
         return self.k.texts.admin_request(self.req) + self.k.memo.notes.get(self.req.id, "")
+
+    def keyboard(self, retry: bool = False) -> InlineKeyboardMarkup:
+        kb = super().keyboard(retry)
+        if not self.req.torrent:
+            return kb
+        return InlineKeyboardMarkup([*kb.inline_keyboard, season_row(TORRENT_SEASON, self.req.id, self.req.season)])
 
     def approved_report(self, results):
         (_, res), = results

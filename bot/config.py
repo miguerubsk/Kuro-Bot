@@ -41,6 +41,8 @@ class Settings:
     tracking_check_minutes: int = 60
     # proxy para cuando la web nos bloquea (p. ej. Tor: socks5://host:9050); vacío = sin proxy
     bypass_proxy: str = ""
+    # pedir por torrent lo que no está en la web: off, admin (solo el miauestro) o all
+    torrent_access: str = "admin"
 
 
 def load() -> Settings:
@@ -73,6 +75,7 @@ def load() -> Settings:
             tracking_sources=_sources(os.environ.get("TRACKING_SOURCES", "changedetection,drive")),
             bypass_proxy=os.environ.get("BLOCK_BYPASS_PROXY", "").strip(),
             tracking_check_minutes=int(os.environ.get("TRACKING_CHECK_MINUTES", "60") or 60),
+            torrent_access=_torrent_access(os.environ.get("TORRENT_ACCESS", "admin")),
         )
     except ValueError as e:
         sys.exit(f"Valor inválido en el .env (los ids de chat, WEEKLY_LIMIT y TRACKING_* deben ser números): {e}")
@@ -87,3 +90,13 @@ def _sources(raw: str) -> frozenset:
     if bad:
         sys.exit(f"TRACKING_SOURCES solo admite {', '.join(TRACKING_SOURCES)} (sobra: {', '.join(sorted(bad))})")
     return out
+
+
+TORRENT_ACCESS = ("off", "admin", "all")
+
+
+def _torrent_access(raw: str) -> str:
+    value = (raw or "admin").strip().lower()
+    if value not in TORRENT_ACCESS:
+        sys.exit(f"TORRENT_ACCESS solo admite {', '.join(TORRENT_ACCESS)} (no «{value}»)")
+    return value

@@ -63,7 +63,8 @@ CREATE TABLE IF NOT EXISTS chats (
 );
 """
 # columnas añadidas después de la primera versión
-_LATE_COLUMNS = ("eps_total", "eps_done", "eps_failed", "quota_exempt", "movie", "bundle_id")
+_LATE_COLUMNS = ("eps_total", "eps_done", "eps_failed", "quota_exempt", "movie", "bundle_id", "anilist_id")
+_LATE_TEXT_COLUMNS = ("source", "season")
 
 
 def _marks(values) -> str:
@@ -82,6 +83,9 @@ class Storage:
             for col in _LATE_COLUMNS:
                 if col not in cols:
                     self._db.execute(f"ALTER TABLE requests ADD COLUMN {col} INTEGER NOT NULL DEFAULT 0")
+            for col in _LATE_TEXT_COLUMNS:
+                if col not in cols:
+                    self._db.execute(f"ALTER TABLE requests ADD COLUMN {col} TEXT NOT NULL DEFAULT ''")
             tcols = {r[1] for r in self._db.execute("PRAGMA table_info(trackings)")}
             if "watch_title" not in tcols:   # el título de la ficha (carpeta en el Drive y en la biblioteca)
                 self._db.execute("ALTER TABLE trackings ADD COLUMN watch_title TEXT NOT NULL DEFAULT ''")
@@ -110,6 +114,7 @@ class Storage:
             created_at=r["created_at"], admin_msg_id=r["admin_msg_id"],
             eps_total=r["eps_total"], eps_done=r["eps_done"], eps_failed=r["eps_failed"],
             movie=bool(r["movie"]), bundle_id=r["bundle_id"], quota_exempt=bool(r["quota_exempt"]),
+            source=r["source"], anilist_id=r["anilist_id"], season=r["season"],
         )
 
     def _request_one(self, sql: str, args=()) -> Request | None:
@@ -128,15 +133,21 @@ class Storage:
 
     # --------------------------------------------------------- peticiones
     def add(self, chat_id, user_name, post, status, bundle_id: int = 0, quota_exempt: bool = False) -> int:
+        """`post` es un PostInfo de la web o un TorrentPost (que trae source, anilist_id y season)."""
         cur = self._write(
             """INSERT INTO requests(chat_id, user_name, post_id, title, post_url, paste_url,
-                                    airing, label, status, created_at, movie, bundle_id, quota_exempt)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                                    airing, label, status, created_at, movie, bundle_id, quota_exempt,
+                                    source, anilist_id, season)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (chat_id, user_name, post.post_id, post.title, post.url, post.paste_url,
              int(post.airing), post.label, status, time.time(), int(getattr(post, "movie", False)),
-             bundle_id, int(quota_exempt)),
+             bundle_id, int(quota_exempt), getattr(post, "source", ""), getattr(post, "anilist_id", 0),
+             getattr(post, "season", "")),
         )
         return cur.lastrowid
+
+    def set_season(self, req_id: int, season: str):
+        self._write("UPDATE requests SET season=? WHERE id=?", (season, req_id))
 
     def get(self, req_id: int) -> Request | None:
         return self._request_one("SELECT * FROM requests WHERE id=?", (req_id,))

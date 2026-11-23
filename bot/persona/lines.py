@@ -159,6 +159,18 @@ LINES: dict[str, list[str]] = {
         "(lo tuyo va directo). Solo se mira los días que toca capítulo. A los clientes les aviso yo de cada "
         "capítulo nuevo; a ti te avisa Anime-Automator, como siempre. En /seguimientos están todos.",
     ],
+    "help_torrent": [
+        "<b>🧲 Por los tejados</b>\n"
+        "Si no encuentro un anime, te enseño lo que conoce AniList y, si es alguno de esos, lo busco por "
+        "torrent. Tarda más y solo me quedo lo que trae subtítulos en español (mejor si es de los buenos, con "
+        "subtítulos en un montón de idiomas). Gasta un carro, como cualquier encargo.",
+    ],
+    "help_torrent_boss": [
+        "<b>🧲 Por los tejados</b>\n"
+        "Si la web no tiene algo, te enseño las opciones de AniList y lo busco por torrent: primero Erai-raws, "
+        "luego otros grupos, y nunca nada sin subtítulos en español. Antes de pedirlo puedes cambiar la "
+        "temporada con las flechas (y también al aprobar lo de un cliente). Las películas aún no.",
+    ],
     "help_rules_head": ["<b>📜 El trato</b>"],
     "help_clients_head": ["<b>👥 Clientes</b>"],
     "help_commands_head": ["<b>⌨️ Comandos</b>"],
@@ -655,6 +667,69 @@ LINES: dict[str, list[str]] = {
         "😸 La película <b>{title}</b> ya está en la colección, {voc}. No te lo cobro.",
         "😸 <b>{title}</b> ya está en la estantería, {voc}. Gratis, nya.",
         "😸 <b>{title}</b> ya estaba aquí, {voc}. No te cobro nada.",
+    ],
+    # ------------------------------------------------- por torrent (los tejados)
+    "torrent_pick": [
+        "🐾 Pero Kuro conoce otro camino: los tejados (torrent). Tarda más, pero llega. "
+        "¿Es alguno de estos?",
+        "🐾 Aunque… por los tejados (torrent) todavía puedo ir a buscarlo. Es más lento. ¿Cuál de estos es, {voc}?",
+        "🐾 No pasa nada, {voc}: si es alguno de estos, voy a por él por los tejados (torrent). Tarda algo más, nya.",
+        "🐾 Hay un mercadillo en los tejados (torrent) donde a veces aparece de todo. ¿Buscas alguno de estos?",
+    ],
+    "torrent_searching": [
+        "🧲 Subo a los tejados a buscar <b>{title}</b>… nya.",
+        "🧲 Olfateando los tejados por si anda por ahí <b>{title}</b>…",
+        "🧲 Un momento, {voc}: me asomo al mercadillo de los tejados a por <b>{title}</b>…",
+        "🧲 Kuro trepa por el canalón en busca de <b>{title}</b>…",
+    ],
+    "torrent_offer": [
+        "🧲 ¡Rastro encontrado, {voc}! De <b>{title}</b> (T{season}) puedo traer {count} capítulo(s) "
+        "por los tejados: {ranges}.",
+        "🧲 En los tejados hay <b>{title}</b> (T{season}): {count} capítulo(s) ({ranges}). "
+        "Va por torrent, así que tarda más que lo de siempre.",
+        "🧲 <b>{title}</b> (T{season}) asoma por el mercadillo: {count} capítulo(s) ({ranges}), "
+        "por torrent. ¿Me lo llevo, {voc}?",
+    ],
+    "torrent_have": [
+        "Ya tengo {have} en la estantería; esos no los vuelvo a traer.",
+        "{have} ya están en casa, nya: solo traigo lo que falta.",
+    ],
+    "torrent_quality_best": [
+        "Es de los buenos: con subtítulos en un montón de idiomas, el español incluido. 😸",
+        "Género de primera, {voc}: subtítulos en varios idiomas y el español entre ellos.",
+        "Los de siempre de fiar, con subtítulos en español y en otros mil idiomas, nya.",
+    ],
+    "torrent_quality_mixed": [
+        "Hay algunos de otros grupos. Solo me quedo los que traen subtítulos en español; "
+        "si alguno no los trae, lo tiro y te aviso.",
+        "No todos son de los de confianza, {voc}. Si alguno viene sin subtítulos en español, lo descarto.",
+        "Algunos vienen de otros puestos del mercadillo. Sin subtítulos en español no entra ninguno en casa, nya.",
+    ],
+    "torrent_season_hint": [
+        "Si la temporada no es esa, {voc}, cámbiala con las flechas antes de pedirlo.",
+        "¿T equivocada? Muévela con las flechas, {voc}, y vuelvo a mirar.",
+    ],
+    "torrent_none": [
+        "😿 Por los tejados tampoco hay rastro de <b>{title}</b> con subtítulos en español, {voc}. "
+        "No te cobro nada.",
+        "😿 He recorrido todos los tejados y de <b>{title}</b> no hay nada que se entienda en español, {voc}. "
+        "No gasta carro.",
+        "😿 En el mercadillo de los tejados <b>{title}</b> solo viene sin subtítulos en español, {voc}. "
+        "Así no lo quiero. No te cuesta carro.",
+    ],
+    "torrent_movie": [
+        "😿 Por los tejados solo sé traer series, {voc}, capítulo a capítulo. Las películas, de momento, no.",
+        "😿 Las películas no caben por el canalón, {voc}. Por torrent solo traigo series, nya.",
+    ],
+    "torrent_error": [
+        "⚠️ Los tejados están resbaladizos ahora mismo, {voc}. Prueba dentro de un rato.",
+        "⚠️ Hay tormenta en los tejados y no puedo subir, {voc}. Vuelve luego, nya.",
+        "⚠️ El almacén no me contesta para ir por los tejados, {voc}. Inténtalo más tarde.",
+    ],
+    "torrent_slow": [
+        "🧲 Va por los tejados (torrent): puede tardar bastante más que lo de siempre, {voc}. Paciencia, nya.",
+        "🧲 Ojo, {voc}: por torrent cada capítulo llega cuando llega. Te aviso de cada uno.",
+        "🧲 Por los tejados (torrent) se tarda más, {voc}. Kuro te avisa según vaya trayendo cada capítulo.",
     ],
     # --------------------------------------------------- mensajes al admin
     "admin_request": [
