@@ -238,6 +238,41 @@ class TestTrackingFlow(TrackingTest):
         self.assertIsNone(self.k.db.track_get(2))         # ni se ofrece: ya tiene 1 de 1
         self.assertIn("/seguimientos", self.bot.to(CLIENT)[-1].text)
 
+    async def test_shared_tracking_is_free(self):
+        """Si ya lo sigue otro, apuntarse no gasta cupo (aunque el cupo esté lleno)."""
+        other = 2001
+        self.make(tracking_limit=1, allowed_chat_ids=frozenset({CLIENT, other}))
+        self.chat_data[other] = {}
+        self.site.airing_ids = {11, 12}
+        await self.press(Pick, CLIENT, "pick:12")
+        await self.press(TrackYes, CLIENT, "tky:1", message=self.offer_msg(CLIENT))   # 1 de 1
+        await self.press(Pick, other, "pick:11")
+        await self.press(TrackYes, other, "tky:2", message=self.offer_msg(other))
+        await self.press(TrackDecision, ADMIN, "tka:2", message=self.track_admin_msg())
+        # CLIENT está lleno, pero el 11 ya lo sigue otro: se le ofrece y se apunta sin gastar
+        await self.press(Pick, CLIENT, "pick:11")
+        q = await self.press(TrackYes, CLIENT, "tky:3", message=self.offer_msg(CLIENT))
+        t = self.k.db.track_get(3)
+        self.assertEqual((t.status, t.shared), (TrackStatus.ACTIVE, True))
+        self.assertIn("cupo", q.message.text)
+        self.assertEqual(self.k.db.track_counted(CLIENT), 1)
+        await self.type(Seguimientos, CLIENT)
+        self.assertIn("no gasta cupo", self.bot.to(CLIENT)[-1].text)
+
+        # el admin ve de quién es cada uno
+        await self.type(Seguimientos, ADMIN)
+        listing = self.bot.to(ADMIN)[-1]
+        texts = [b.text for row in listing.reply_markup.inline_keyboard for b in row]
+        self.assertEqual(sum(t.endswith(" · Anime A") for t in texts), 2)   # el mismo anime, dos personas
+        self.assertTrue(any(t.startswith(f"🗑 User{CLIENT} · ") for t in texts), texts)
+        self.assertTrue(any(t.startswith(f"🗑 User{other} · ") for t in texts), texts)
+        self.assertIn(f"👤 User{other}", listing.text)
+
+    def test_short_name(self):
+        from bot.handlers.tracking import short_name
+        self.assertEqual(short_name("luis sagarvinaga (@Luisito_kun)"), "@Luisito_kun")
+        self.assertEqual(short_name("Ana"), "Ana")
+
     async def test_failed_creation_offers_retry(self):
         await self.press(Pick, CLIENT, "pick:11")
         await self.press(TrackYes, CLIENT, "tky:1", message=self.offer_msg(CLIENT))

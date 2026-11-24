@@ -19,7 +19,7 @@ from telegram.constants import ParseMode
 from telegram.error import TelegramError
 
 from ..core.models import Status
-from ..core.text import e
+from ..core.text import e, season_tag
 from ..services.japanpaw import PostInfo
 from ..ui.session import SeasonGroup
 from .library import Assessment
@@ -257,7 +257,7 @@ class BundlePlacing(Placing):
         items = []
         for post_id, title, url, season in self.group.items:
             if self.sub.already_active(post_id):
-                self.skipped.append(f"T{season}")
+                self.skipped.append(season_tag(season))
                 continue
             try:
                 post = await self.k.site.get_post(url, post_id, title)
@@ -270,7 +270,7 @@ class BundlePlacing(Placing):
             self.saw(post)
             check = await self.sub.check(post)
             if check is not None and not check.available:
-                self.skipped.append(f"T{season}")
+                self.skipped.append(season_tag(season))
                 continue
             items.append(Item(post, season, check))
         if not items:
@@ -288,10 +288,10 @@ class BundlePlacing(Placing):
         return BundleTarget(self.k, reqs)
 
     def _items_html(self, target) -> str:
-        return ", ".join(f"T{e(self.k.memo.seasons[r.id])}" for r in target.reqs)
+        return ", ".join(e(season_tag(self.k.memo.seasons[r.id])) for r in target.reqs)
 
     def sending_label(self, target):
-        return " (" + ", ".join(f"T{self.k.memo.seasons[r.id]}" for r in target.reqs) + ")"
+        return " (" + ", ".join(season_tag(self.k.memo.seasons[r.id]) for r in target.reqs) + ")"
 
     def sent_text(self, target):
         skipped = self.say("bundle_skipped", items_html=", ".join(self.skipped)) if self.skipped else ""

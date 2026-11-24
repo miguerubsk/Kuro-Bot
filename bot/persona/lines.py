@@ -281,6 +281,12 @@ LINES: dict[str, list[str]] = {
         "⚠️ Han pasado la aspiradora por {site} y no hay quien entre, {voc}. Prueba en un rato.",
         "⚠️ El perro del vecino se ha plantado en la puerta de {site}. Mejor volvemos luego, {voc}.",
     ],
+    "blocked_anime": [
+        "🙀 Uy, {voc}: «{title}» está en la lista negra del miauestro. Es tan largo que no cabe en el "
+        "tejado, así que esa no la puedo pedir. ¿Probamos con otro?",
+        "😾 «{title}» no, {voc}: el miauestro lo tiene vetado (son cientos de capítulos). Pídeme cualquier "
+        "otro y salgo corriendo.",
+    ],
     "not_found": [
         "😿 Ni rastro de «{query}» en {site}, {voc}. Prueba con el título en romaji "
         "(p. ej. <i>{example}</i>) o con menos palabras.",
@@ -440,9 +446,10 @@ LINES: dict[str, list[str]] = {
     ],
     # ------------------------------------------------- todas las temporadas
     "pick_seasons": [
-        "\n📦 Hay varias temporadas: puedes llevártelas todas por <b>un solo encargo</b>.",
-        "\n📦 Oferta de la casa: todas las temporadas juntas cuentan como <b>un encargo</b>, nya.",
-        "\n📦 Varias temporadas a la vista: el lote entero cuenta como <b>un encargo</b>.",
+        "\n📦 Hay varias temporadas (u OVAs y películas): puedes llevártelo todo por <b>un solo encargo</b>.",
+        "\n📦 Oferta de la casa: temporadas, OVAs y películas juntas cuentan como <b>un encargo</b>, nya.",
+        "\n📦 Varias piezas a la vista (temporadas, OVAs, películas): el lote entero cuenta como "
+        "<b>un encargo</b>.",
     ],
     "bundle_reading": [
         "⏳ Reuniendo todas las temporadas de <b>{title}</b> y mirando qué hay ya en el almacén…",
@@ -683,29 +690,36 @@ LINES: dict[str, list[str]] = {
         "🧲 Kuro trepa por el canalón en busca de <b>{title}</b>…",
     ],
     "torrent_offer": [
-        "🧲 ¡Rastro encontrado, {voc}! De <b>{title}</b> (T{season}) puedo traer {count} capítulo(s) "
+        "🧲 ¡Rastro encontrado, {voc}! De <b>{title}</b> ({tag}) puedo traer {count} capítulo(s) "
         "por los tejados: {ranges}.",
-        "🧲 En los tejados hay <b>{title}</b> (T{season}): {count} capítulo(s) ({ranges}). "
+        "🧲 En los tejados hay <b>{title}</b> ({tag}): {count} capítulo(s) ({ranges}). "
         "Va por torrent, así que tarda más que lo de siempre.",
-        "🧲 <b>{title}</b> (T{season}) asoma por el mercadillo: {count} capítulo(s) ({ranges}), "
+        "🧲 <b>{title}</b> ({tag}) asoma por el mercadillo: {count} capítulo(s) ({ranges}), "
         "por torrent. ¿Me lo llevo, {voc}?",
     ],
+    "torrent_offer_movie": [
+        "🎬 ¡Rastro encontrado, {voc}! La película <b>{title}</b> está en los tejados (torrent). "
+        "Tarda más que lo de siempre, pero llega.",
+        "🎬 <b>{title}</b> asoma por el mercadillo de los tejados (torrent), {voc}. ¿Me la llevo?",
+    ],
     "torrent_seasons_searching": [
-        "🧲 Subo a los tejados a buscar todas las temporadas de <b>{title}</b>… Esto lleva un ratito, nya.",
-        "🧲 Kuro va de tejado en tejado mirando cada temporada de <b>{title}</b>. Un momento, {voc}…",
-        "🧲 Inventario de <b>{title}</b> en el mercadillo de los tejados, temporada a temporada…",
+        "🧲 Subo a los tejados a buscar todo lo de <b>{title}</b> (temporadas, OVAs y películas)… "
+        "Esto lleva un ratito, nya.",
+        "🧲 Kuro va de tejado en tejado mirando cada temporada, OVA y película de <b>{title}</b>. "
+        "Un momento, {voc}…",
+        "🧲 Inventario de <b>{title}</b> en el mercadillo de los tejados, pieza a pieza…",
     ],
     "torrent_seasons_offer": [
         "🧲 Esto es lo que hay de <b>{title}</b> por los tejados (torrent), {voc}. "
-        "Me llevo {count} temporada(s) en un solo encargo:",
-        "🧲 Repaso de <b>{title}</b> en los tejados (torrent): {count} temporada(s) que puedo traerte "
+        "Me llevo {count} pieza(s) (temporadas, OVAs, películas) en un solo encargo:",
+        "🧲 Repaso de <b>{title}</b> en los tejados (torrent): {count} pieza(s) que puedo traerte "
         "de una tacada, un solo carro:",
-        "🧲 De <b>{title}</b> hay género para {count} temporada(s) por torrent, {voc}. Todo en un encargo:",
+        "🧲 De <b>{title}</b> hay género para {count} pieza(s) por torrent, {voc}. Todo en un encargo:",
     ],
     "torrent_seasons_none": [
         "😿 De <b>{title}</b> no hay nada por los tejados que traiga subtítulos en español, {voc}. "
         "No te cobro nada.",
-        "😿 He mirado temporada a temporada y de <b>{title}</b> no queda nada que me sirva, {voc}. No gasta carro.",
+        "😿 He mirado pieza a pieza y de <b>{title}</b> no queda nada que me sirva, {voc}. No gasta carro.",
     ],
     "torrent_have": [
         "Ya tengo {have} en la estantería; esos no los vuelvo a traer.",
@@ -735,8 +749,8 @@ LINES: dict[str, list[str]] = {
         "Así no lo quiero. No te cuesta carro.",
     ],
     "torrent_movie": [
-        "😿 Por los tejados solo sé traer series, {voc}, capítulo a capítulo. Las películas, de momento, no.",
-        "😿 Las películas no caben por el canalón, {voc}. Por torrent solo traigo series, nya.",
+        "😿 Eso no sé traerlo por los tejados, {voc}: por torrent solo traigo series, OVAs y películas.",
+        "😿 Eso no cabe por el canalón, {voc}. Por torrent traigo series, OVAs y películas, nya.",
     ],
     "torrent_error": [
         "⚠️ Los tejados están resbaladizos ahora mismo, {voc}. Prueba dentro de un rato.",
@@ -859,8 +873,9 @@ LINES: dict[str, list[str]] = {
     ],
     "track_joined": [
         "📡 ¡Hecho, {voc}! <b>{title}</b> ya lo vigilaba para otro cliente, así que te apunto "
-        "sin más: {when}.",
-        "📡 Suerte, {voc}: ya tenía un ojo puesto en <b>{title}</b> ({when}). Te apunto a la misma guardia.",
+        "sin más: {when}. Y como la guardia ya estaba montada, no te gasta cupo.",
+        "📡 Suerte, {voc}: ya tenía un ojo puesto en <b>{title}</b> ({when}). Te apunto a la misma guardia, "
+        "y esa no cuenta en tu cupo.",
     ],
     "track_active": [
         "📡 ¡Guardia montada, {voc}! Vigilo <b>{title}</b> {when}. Cada capítulo nuevo irá al "

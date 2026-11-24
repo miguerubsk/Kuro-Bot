@@ -14,7 +14,7 @@ ALWAYS = {"voc", "Voc", "site", "example"}
 KEY_ARGS = {
     "help_user": {"limit"}, "help_track": {"limit"}, "deny_id": {"chat_id"}, "deny_keyword": {"chat_id"},
     "admin_added": {"who", "chat_id"}, "admin_add_already": {"chat_id"}, "chat_id": {"chat_id"},
-    "searching": {"query"}, "not_found": {"query"}, "alias_hint": {"query", "alias"},
+    "searching": {"query"}, "not_found": {"query"}, "blocked_anime": {"title"}, "alias_hint": {"query", "alias"},
     "history_mine": {"count"}, "history_client_one": {"who", "count"}, "history_client_few": {"who", "count"},
     "history_client_many": {"who", "count"}, "history_client_waiting": {"who", "count"},
     "history_empty_client": {"who"}, "reading_post": {"title"}, "no_link": {"title"},
@@ -46,7 +46,7 @@ KEY_ARGS = {
     "track_admin_failed": {"title"}, "track_admin_ended": {"title"}, "track_admin_delete_failed": {"title"},
     "track_admin_cd_retired": {"n"},
     "lonely_back": {"days"}, "lonely_back_hurt": {"days"}, "lonely_back_drama": {"days"},
-    "torrent_searching": {"title"}, "torrent_offer": {"title", "season", "count", "ranges"},
+    "torrent_searching": {"title"}, "torrent_offer": {"title", "tag", "count", "ranges"}, "torrent_offer_movie": {"title"},
     "torrent_have": {"have"}, "torrent_none": {"title"},
     "torrent_seasons_searching": {"title"}, "torrent_seasons_offer": {"title", "count"},
     "torrent_seasons_none": {"title"},

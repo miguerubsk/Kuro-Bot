@@ -100,8 +100,13 @@ class Tracker:
     def _say(self, key, to, **kw):
         return self.k.persona.say(key, to, **kw)
 
-    def full(self, chat_id: int) -> bool:
-        return not self.k.is_admin(chat_id) and self.k.db.track_counted(chat_id) >= self.limit
+    def full(self, chat_id: int, paste_url: str = "") -> bool:
+        """¿No le queda cupo? Lo que ya sigue otro no gasta cupo, así que para eso siempre hay."""
+        if self.k.is_admin(chat_id):
+            return False
+        if paste_url and self.k.db.track_followed_by_others(chat_id, paste_url):
+            return False
+        return self.k.db.track_counted(chat_id) >= self.limit
 
     # ---------------------------------------------------------- emisión
     async def confirm_airing(self, post):
@@ -130,7 +135,7 @@ class Tracker:
         db = self.k.db
         if db.track_live_for(chat_id, post.paste_url):
             return
-        if self.full(chat_id):
+        if self.full(chat_id, post.paste_url):
             await self.k.messenger.send(chat_id, self._say("track_offer_full", chat_id, title=post.title,
                                                            limit=self.limit))
             return
@@ -145,11 +150,14 @@ class Tracker:
     async def accept(self, t) -> str:
         """El cliente (o el miauestro) dice que sí. Devuelve el texto para el mensaje de la oferta."""
         db, to = self.k.db, t.chat_id
-        if self.full(to):
+        shared_now = db.track_followed_by_others(to, t.paste_url)
+        if not shared_now and self.full(to):
             db.track_transition(t.id, (TrackStatus.OFFERED,), TrackStatus.DECLINED)
             return self._say("track_offer_full", to, title=t.title, limit=self.limit)
         if not db.track_transition(t.id, (TrackStatus.OFFERED,), TrackStatus.PENDING):
             return self._say("track_already", to, title=t.title)
+        if shared_now:
+            db.track_update(t.id, shared=True)
 
         schedule = await self.plan(t)
         t = db.track_get(t.id)

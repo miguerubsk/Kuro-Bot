@@ -9,6 +9,7 @@ web o BD falsos) sin tocar nada más.
 
 from .config import Settings
 from .core.access import make_policy
+from .core.blocklist import Blocklist
 from .core.quota import Quota
 from .core.storage import Storage
 from .events.handlers import EventRouter
@@ -44,6 +45,7 @@ class Kuro:
 
         self.automator = automator or AutomatorClient(cfg.automator_url, cfg.callback_secret)
         self.catalog = AniListCatalog(cfg.tmdb_api_key)   # lo que se pide por torrent
+        self.blocklist = Blocklist(cfg.blocked_anime)
         self.site = site or JapanpawClient(cfg.japanpaw_base, cfg.sockpuppet_url, cfg.force_browser,
                                              proxy=cfg.bypass_proxy)
 
@@ -65,6 +67,10 @@ class Kuro:
 
     def is_admin(self, chat_id: int) -> bool:
         return chat_id == self.admin
+
+    def blocked(self, chat_id: int, *titles: str) -> bool:
+        """¿Es uno de los animes que los clientes no pueden pedir? (el miauestro sí puede)"""
+        return not self.is_admin(chat_id) and self.blocklist.matches(*titles)
 
     def torrent_allowed(self, chat_id: int) -> bool:
         """¿Puede pedir por torrent lo que no está en la web? (TORRENT_ACCESS)"""

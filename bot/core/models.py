@@ -104,3 +104,4 @@ class Tracking:
     schedule: dict | None = None
     request_id: int = 0
     watch_title: str = ""      # <title> de la ficha: con él elige Anime-Automator la carpeta
+    shared: bool = False       # ya lo seguía otro cuando se apuntó: no gasta cupo

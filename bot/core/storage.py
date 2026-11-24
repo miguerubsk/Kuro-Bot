@@ -53,7 +53,8 @@ CREATE TABLE IF NOT EXISTS trackings (
     anilist_id INTEGER NOT NULL DEFAULT 0,
     schedule TEXT NOT NULL DEFAULT '',
     request_id INTEGER NOT NULL DEFAULT 0,
-    watch_title TEXT NOT NULL DEFAULT ''
+    watch_title TEXT NOT NULL DEFAULT '',
+    shared INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_trackings_paste ON trackings(paste_url, status);
 CREATE TABLE IF NOT EXISTS chats (
@@ -89,6 +90,13 @@ class Storage:
             tcols = {r[1] for r in self._db.execute("PRAGMA table_info(trackings)")}
             if "watch_title" not in tcols:   # el título de la ficha (carpeta en el Drive y en la biblioteca)
                 self._db.execute("ALTER TABLE trackings ADD COLUMN watch_title TEXT NOT NULL DEFAULT ''")
+            if "shared" not in tcols:   # se apuntó a algo que ya seguía otro: no gasta cupo
+                self._db.execute("ALTER TABLE trackings ADD COLUMN shared INTEGER NOT NULL DEFAULT 0")
+                counted = _marks(TrackStatus.COUNTED)
+                self._db.execute(
+                    f"UPDATE trackings SET shared=1 WHERE status IN ({counted}) AND EXISTS (SELECT 1 FROM trackings o "
+                    f"WHERE o.paste_url=trackings.paste_url AND o.chat_id<>trackings.chat_id AND o.id<trackings.id "
+                    f"AND o.status IN ({counted}))", (*TrackStatus.COUNTED, *TrackStatus.COUNTED))
 
     # ------------------------------------------------------------ acceso
     def _write(self, sql: str, args=()) -> sqlite3.Cursor:
@@ -284,7 +292,7 @@ class Storage:
             post_url=r["post_url"], paste_url=r["paste_url"], status=r["status"], created_at=r["created_at"],
             watch_uuid=r["watch_uuid"], owned=bool(r["owned"]), anilist_id=r["anilist_id"],
             schedule=json.loads(r["schedule"]) if r["schedule"] else None, request_id=r["request_id"],
-            watch_title=r["watch_title"],
+            watch_title=r["watch_title"], shared=bool(r["shared"]),
         )
 
     def _trackings(self, sql: str, args=()) -> list[Tracking]:
@@ -312,6 +320,8 @@ class Storage:
             fields["schedule"] = json.dumps(fields["schedule"]) if fields["schedule"] else ""
         if "owned" in fields:
             fields["owned"] = int(fields["owned"])
+        if "shared" in fields:
+            fields["shared"] = int(fields["shared"])
         cols = ", ".join(f"{k}=?" for k in fields)
         self._write(f"UPDATE trackings SET {cols} WHERE id=?", (*fields.values(), tid))
 
@@ -323,9 +333,18 @@ class Storage:
             f"ORDER BY id DESC LIMIT 1", (chat_id, paste_url, *states)))
 
     def track_counted(self, chat_id: int) -> int:
+        """Los que gastan cupo: los compartidos (ya los seguía otro) no cuentan."""
         return self._first(
-            f"SELECT COUNT(*) FROM trackings WHERE chat_id=? AND status IN ({_marks(TrackStatus.COUNTED)})",
+            f"SELECT COUNT(*) FROM trackings WHERE chat_id=? AND shared=0 "
+            f"AND status IN ({_marks(TrackStatus.COUNTED)})",
             (chat_id, *TrackStatus.COUNTED))[0]
+
+    def track_followed_by_others(self, chat_id: int, paste_url: str) -> bool:
+        """¿Lo sigue ya otro chat (pendiente o activo)?"""
+        return self._first(
+            f"SELECT 1 FROM trackings WHERE paste_url=? AND chat_id<>? "
+            f"AND status IN ({_marks(TrackStatus.COUNTED)}) LIMIT 1",
+            (paste_url, chat_id, *TrackStatus.COUNTED)) is not None
 
     def track_active_for_url(self, paste_url: str) -> list[Tracking]:
         return self._trackings("SELECT * FROM trackings WHERE paste_url=? AND status=? ORDER BY id",

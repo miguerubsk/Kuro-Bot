@@ -42,6 +42,12 @@ def plain(html_text: str) -> str:
     return html.unescape(re.sub(r"<[^>]+>", "", html_text))
 
 
+def season_tag(season) -> str:
+    """«T2» para una temporada; los extras del pack ya traen su nombre («OVA», «🎬 Película»)."""
+    s = str(season or "").strip()
+    return f"T{s}" if s[:1].isdigit() else s
+
+
 def season_sort(season) -> float:
     try:
         return float(season)

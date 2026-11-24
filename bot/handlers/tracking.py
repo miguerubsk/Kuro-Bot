@@ -1,5 +1,7 @@
 """Seguimiento semanal: aceptar/rechazar la oferta, la decisión del admin, /seguimientos y dejar de seguir."""
 
+import re
+
 from telegram import InlineKeyboardMarkup
 
 from ..core.models import TrackStatus
@@ -86,6 +88,12 @@ class TrackStop(TrackButton):
                                           reply_markup=kb)
 
 
+def short_name(user_name: str) -> str:
+    """«luis sagarvinaga (@Luisito_kun)» -> «@Luisito_kun» (o el nombre, si no tiene usuario)."""
+    m = re.search(r"\((@[^)]+)\)", user_name or "")
+    return m.group(1) if m else (user_name or "?").strip()
+
+
 @register
 class Seguimientos(ChatCommand):
     names = ("seguimientos", "vigilar")
@@ -104,8 +112,15 @@ class Seguimientos(ChatCommand):
         for t in items:
             state = "" if t.status == TrackStatus.ACTIVE else " — ⏳ pendiente del miauestro" if (
                 t.status == TrackStatus.PENDING) else " — ⚠️ falló al crearse"
-            who = f" · {e(t.user_name)}" if admin and not kuro.is_admin(t.chat_id) else ""
-            lines.append(f"📡 <b>{e(t.title)}</b>{who}\n    {e(Schedule.from_dict(t.schedule).describe())}{state}")
+            shared = " — 🤝 compartida, no gasta cupo" if t.shared and not admin else ""
+            if admin:
+                # al admin le salen las de todos: cada línea y cada botón dicen de quién es
+                owner = "tú" if kuro.is_admin(t.chat_id) else short_name(t.user_name)
+                lines.append(f"📡 <b>{e(t.title)}</b> · 👤 {e(owner)}\n"
+                             f"    {e(Schedule.from_dict(t.schedule).describe())}{state}")
+                rows.append([button(f"🗑 {owner} · {plain(t.title)}", f"{Tracker.STOP}:{t.id}", 48)])
+                continue
+            lines.append(f"📡 <b>{e(t.title)}</b>\n    {e(Schedule.from_dict(t.schedule).describe())}{state}{shared}")
             rows.append([button(f"🗑 {plain(t.title)}", f"{Tracker.STOP}:{t.id}", 40)])
         if not admin:
             lines.append(say("track_list_limit", count=kuro.db.track_counted(chat_id), limit=kuro.tracker.limit))

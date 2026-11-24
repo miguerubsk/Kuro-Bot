@@ -158,6 +158,11 @@ class FakeCatalog:
                            description="The koto club goes on.", genres=["Music", "Drama"],
                            neighbours=[("PREQUEL", 103302, "TV")]),
             209463: Option(209463, "Kanata Kara", "", "TV", None, 2026, "RELEASING"),
+            # una serie con su película (para el pack con extras)
+            301: Option(301, "Seitokai Yakuindomo", "", "TV", 13, 2010, "FINISHED",
+                        neighbours=[("SIDE_STORY", 302, "MOVIE")]),
+            302: Option(302, "Seitokai Yakuindomo Movie", "", "MOVIE", 1, 2017, "FINISHED",
+                        neighbours=[("PARENT", 301, "TV")]),
         }
 
     async def options(self, query, limit=6):
@@ -169,7 +174,9 @@ class FakeCatalog:
     async def details(self, options):
         return {o.anilist_id: o.details() for o in options}
 
-    async def seasons(self, anilist_id):
+    async def pack(self, anilist_id):
+        if anilist_id in (301, 302):
+            return [self.all[301], self.all[302]]
         return [self.all[103302], self.all[108891]] if anilist_id in (103302, 108891) else [self.all[anilist_id]]
 
 
@@ -182,8 +189,10 @@ class FakeSite:
     async def search_with_aliases(self, query):
         return list(self.results), None
 
+    kinds: dict = {}
+
     async def post_kinds(self, ids):
-        return {}
+        return self.kinds
 
     async def details(self, ids):
         return {i: Details(synopsis="Sinopsis " * 5, episodes="12") for i in ids} if self.with_details else {}
@@ -279,6 +288,55 @@ class TestSearch(KuroTest):
         card = self.bot.to(CLIENT)[-1]
         await self.press(Cancel, CLIENT, "cancel", message=card)
         self.assertIn(card.message_id, self.bot.deleted)
+
+    async def test_blocked_anime(self):
+        self.site.results = [SearchResult(21, "One Piece", "https://japanpaw.com/op"),
+                             SearchResult(22, "One Piece Film: Red", "https://japanpaw.com/opr")]
+        await self.type(FreeText, CLIENT, "one piece")
+        self.assertIn("one piece", self.bot.to(CLIENT)[-1].text.lower())
+        self.assertNotIn("pick:21", self.buttons(self.bot.to(CLIENT)[-1]))
+        self.assertFalse(any("pick:" in d for m in self.bot.to(CLIENT) for d in self.buttons(m)))
+        # aunque se busque por otro nombre, lo que salga de Naruto no se puede elegir
+        self.site.with_details = False
+        self.site.results = [SearchResult(23, "Naruto: Shippuuden", "https://japanpaw.com/n"),
+                             SearchResult(24, "Boku no Hero", "https://japanpaw.com/b")]
+        await self.type(FreeText, CLIENT, "shippuden")
+        self.assertEqual(self.buttons(self.bot.to(CLIENT)[-1]), ["pick:24", "cancel"])
+        # el miauestro sí puede
+        await self.type(FreeText, ADMIN, "naruto")
+        self.assertIn("pick:23", self.buttons(self.bot.to(ADMIN)[-1]))
+
+    def test_blocklist(self):
+        from bot.core.blocklist import Blocklist, parse
+        b = Blocklist(parse(None))
+        self.assertTrue(b.matches("ONE PIECE Film: Red"))
+        self.assertTrue(b.matches("Boruto: Naruto Next Generations"))
+        self.assertFalse(b.matches("Monster", "One Punch Man"))
+        self.assertFalse(Blocklist(parse("")).matches("Naruto"))
+
+    async def test_movies_and_ovas_join_the_pack(self):
+        self.site.with_details = False
+        self.site.results = [SearchResult(31, "Monster Musume no Iru Nichijou", "https://japanpaw.com/mm"),
+                             SearchResult(32, "Monster", "https://japanpaw.com/m"),
+                             SearchResult(33, "Monster Musume no Iru Nichijou OVA", "https://japanpaw.com/mmo"),
+                             SearchResult(34, "Gekijouban Monster Musume", "https://japanpaw.com/mmp")]
+        self.site.kinds = {34: {"pelicula"}}
+        self.automator.season_info = [
+            {"key": "mm", "season": "1", "base": "Monster Musume no Iru Nichijō"},
+            {"key": "monster", "season": "1", "base": "Monster"},
+            {"key": "mmova", "season": "1", "base": "Monster Musume no Iru Nichijō OVA"},
+            {"key": "gmm", "season": "1", "base": "Gekijōban Monster Musume"}]
+        await self.type(FreeText, CLIENT, "monster musume")
+        status = self.bot.to(CLIENT)[-1]
+        # la OVA va con su serie (no con «Monster»); la película no es de esta serie ni de «Monster»
+        self.assertEqual(self.buttons(status), ["pick:31", "pick:33", "all:1", "pick:32", "pick:34", "cancel"])
+        texts = [b.text for row in status.reply_markup.inline_keyboard for b in row]
+        self.assertIn("OVA · Monster Musume no Iru Nichijou OVA", texts)
+        self.assertTrue(any("T1 + 1 extra" in t for t in texts), texts)
+        from bot.ui.results import extra_of
+        self.assertTrue(extra_of("Kimetsu no Yaiba", "Kimetsu no Yaiba: Mugen Ressha-hen", True))
+        self.assertTrue(extra_of("Seitokai Yakuindomo", "Gekijouban Seitokai Yakuindomo 2", True))
+        self.assertFalse(extra_of("Kimetsu no Yaiba", "Kimetsu no Yaiba: Yuukaku-hen", False))
 
     async def test_stranger_is_denied(self):
         await self.type(FreeText, STRANGER, "anime a")
@@ -639,6 +697,22 @@ class TestTorrentSeasons(KuroTest):
         self.assertIn("subtítulos en español", q.message.text)
         self.assertEqual(self.buttons(q.message), [])
 
+    async def test_pack_with_a_movie(self):
+        self.make(torrent_access="all")
+        self.checks({301: {"status": "nothing_new", "name": "Seitokai Yakuindomo", "season": "1", "have": 13},
+                     302: {"status": "missing", "kind": "movie", "name": "Seitokai Yakuindomo Movie", "season": "",
+                           "missing": [1], "found": [1], "preferred": 1, "groups": {"Erai-raws": 1}}})
+        q = await self.press(TorrentAll, CLIENT, "tra:301")
+        self.assertIn("<b>🎬 Película</b> · Seitokai Yakuindomo Movie: 🧲 la película", q.message.text)
+        self.assertIn("<b>T1</b> · Seitokai Yakuindomo: ✅ ya la tienes", q.message.text)
+        await self.press(TorrentGoAll, CLIENT, "trb:1", message=q.message)
+        req = self.k.db.bundle(1)[0]
+        self.assertEqual((req.anilist_id, req.season, req.movie), (302, "", True))
+        admin_msg = self.admin_request_msg()
+        self.assertIn("🎬 Película · Seitokai Yakuindomo Movie", admin_msg.text)
+        await self.press(Decision, ADMIN, "bok:1", message=admin_msg)
+        self.assertEqual(self.automator.torrent_downloads, [(302, None, 1)])    # sin temporada que forzar
+
     async def test_single_season_falls_back_to_one(self):
         q = await self.press(TorrentAll, ADMIN, "tra:209463")
         self.assertIn("trg:209463:2", self.buttons(q.message))
@@ -660,7 +734,38 @@ class TestCatalog(unittest.IsolatedAsyncioTestCase):
         async def option(i):
             return opts.get(i)
         cat.option = option
-        self.assertEqual([o.title for o in await cat.seasons(4)], ["S1", "S2", "S3"])
+        # el especial del camino va en el pack, en su sitio; la T4 aún no se ha estrenado
+        self.assertEqual([o.title for o in await cat.pack(4)], ["S1", "S2", "Especial", "S3"])
+
+    async def test_pack_with_side_stories_and_movie_sequels(self):
+        """Seitokai Yakuindomo: T1 -> OVA -> T2 -> OVA, y de esa OVA cuelgan la película y su secuela."""
+        from bot.services.catalog import AniListCatalog, Option
+        opts = {1: Option(1, "SY", "", "TV", 13, 2010, "FINISHED", neighbours=[("SEQUEL", 2, "OVA")]),
+                2: Option(2, "SY OVA", "", "OVA", 8, 2011, "FINISHED",
+                          neighbours=[("PREQUEL", 1, "TV"), ("SEQUEL", 3, "TV")]),
+                3: Option(3, "SY*", "", "TV", 13, 2014, "FINISHED",
+                          neighbours=[("PREQUEL", 2, "OVA"), ("SEQUEL", 4, "OVA")]),
+                4: Option(4, "SY* OVA", "", "OVA", 10, 2014, "FINISHED",
+                          neighbours=[("PREQUEL", 3, "TV"), ("SIDE_STORY", 5, "MOVIE")]),
+                5: Option(5, "SY Movie", "", "MOVIE", 1, 2017, "FINISHED",
+                          neighbours=[("PARENT", 4, "OVA"), ("SEQUEL", 6, "MOVIE")]),
+                6: Option(6, "SY Movie 2", "", "MOVIE", 1, 2021, "FINISHED", neighbours=[("PREQUEL", 5, "MOVIE")]),
+                7: Option(7, "MM", "", "TV", 12, 2015, "FINISHED",
+                          neighbours=[("SIDE_STORY", 8, "OVA"), ("SIDE_STORY", 9, "ONA")]),
+                8: Option(8, "MM SP", "", "OVA", 2, 2016, "FINISHED", neighbours=[("PARENT", 7, "TV")]),
+                9: Option(9, "MM shorts", "", "ONA", 60, 2015, "FINISHED", neighbours=[("PARENT", 7, "TV")])}
+        cat = AniListCatalog()
+
+        async def option(i):
+            return opts.get(i)
+        cat.option = option
+        full = ["SY", "SY OVA", "SY*", "SY* OVA", "SY Movie", "SY Movie 2"]
+        self.assertEqual([o.title for o in await cat.pack(3)], full)
+        self.assertEqual([o.title for o in await cat.pack(6)], full)      # desde la película 2 también
+        # Monster Musume: la OVA cuelga aparte (historia paralela); los cortos ONA no van
+        self.assertEqual([o.title for o in await cat.pack(8)], ["MM", "MM SP"])
+        self.assertTrue(opts[7].has_pack)
+        self.assertEqual([o.tag for o in await cat.pack(3)], ["", "OVA", "", "OVA", "🎬 Película", "🎬 Película"])
 
 
     def test_media_to_card(self):
@@ -673,7 +778,7 @@ class TestCatalog(unittest.IsolatedAsyncioTestCase):
             "relations": {"edges": [{"relationType": "SEQUEL", "node": {"id": 8, "format": "TV", "type": "ANIME"}},
                                     {"relationType": "SEQUEL", "node": {"id": 9, "format": "MOVIE", "type": "ANIME"}},
                                     {"relationType": "SIDE_STORY", "node": {"id": 10, "format": "TV", "type": "ANIME"}}]}})
-        self.assertEqual(o.neighbours, [("SEQUEL", 8, "TV"), ("SEQUEL", 9, "MOVIE")])
+        self.assertEqual(o.neighbours, [("SEQUEL", 8, "TV"), ("SEQUEL", 9, "MOVIE"), ("SIDE_STORY", 10, "TV")])
         d = o.details()
         self.assertEqual(d.synopsis, "Kumiko joins\nthe band & more.")
         self.assertEqual((d.season, d.genres, d.episodes), ("Otoño 2019", "Recuentos de la vida, Música", "12"))

@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from telegram import InlineKeyboardMarkup
 
 from ..core.models import Status
-from ..core.text import e
+from ..core.text import e, season_tag
 from ..ui.keyboards import season_row, yes_no
 from .dispatcher import Outcome
 
@@ -105,7 +105,7 @@ class SingleTarget(Target):
 
     def keyboard(self, retry: bool = False) -> InlineKeyboardMarkup:
         kb = super().keyboard(retry)
-        if not self.req.torrent:
+        if not self.req.torrent or not self.req.season:   # OVAs y películas: sin temporada que corregir
             return kb
         return InlineKeyboardMarkup([*kb.inline_keyboard, season_row(TORRENT_SEASON, self.req.id, self.req.season)])
 
@@ -145,7 +145,7 @@ class BundleTarget(Target):
 
     def tag(self, req):
         t = self.k.memo.seasons.get(req.id)
-        return f"<b>T{e(t)}</b> · " if t else ""
+        return f"<b>{e(season_tag(t))}</b> · " if t else ""
 
     def approved_report(self, results):
         return (self.k.persona.say("admin_approved", self.k.admin) + "\n"

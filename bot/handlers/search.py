@@ -23,6 +23,8 @@ class SearchMixin:
         if len(query) < self.MIN_LEN:
             return await ctx.reply_key("ask_name")
         query = query[:self.MAX_LEN]
+        if k.blocked(ctx.chat_id, query):
+            return await ctx.reply_key("blocked_anime", title=query)
         # sin cupo también se puede buscar: lo que ya está en la biblioteca, o
         # solo en peor calidad, no gasta cupo (el cupo se mira al elegir)
         status = await ctx.reply_key("searching", query=query)
@@ -31,6 +33,10 @@ class SearchMixin:
         except Exception:
             log.exception("Fallo buscando %r", query)
             return await status.edit_text(ctx.say("search_error"), parse_mode="HTML")
+        allowed = [r for r in results if not k.blocked(ctx.chat_id, r.title)]
+        if results and not allowed:
+            return await status.edit_text(ctx.say("blocked_anime", title=query), parse_mode="HTML")
+        results = allowed
         if not results:
             return await self.not_found(ctx, status, query)
 
@@ -51,13 +57,14 @@ class SearchMixin:
         """Sin resultados en la web: si se puede, las opciones de AniList para buscarlo por torrent."""
         text = ctx.say("not_found", query=query)
         options = await self.k.catalog.options(query) if self.k.torrent_allowed(ctx.chat_id) else None
+        options = [o for o in options or [] if not self.k.blocked(ctx.chat_id, o.title, o.english)]
         if not options:
             return await status.edit_text(text, parse_mode="HTML")
         text += "\n\n" + ctx.say("torrent_pick")
         try:
             # fichas con portada y sinopsis, como las de la web
             details = await self.k.catalog.details(options)
-            choices = [Choice(o.anilist_id, o.title, o.anilist_id if o.has_seasons else None) for o in options]
+            choices = [Choice(o.anilist_id, o.title, o.anilist_id if o.has_pack else None) for o in options]
             await status.edit_text(text, parse_mode="HTML")
             return await self.k.cards.send(ctx.bot, ctx.chat_id, ctx.session, choices, details, torrent=True)
         except Exception:
@@ -65,8 +72,8 @@ class SearchMixin:
         rows = []
         for o in options:
             rows.append([button(o.label(), f"{TORRENT_OFFER}:{o.anilist_id}", width=60)])
-            if o.has_seasons:
-                rows.append([button(f"📦 Todas: {o.title}", f"{TORRENT_ALL}:{o.anilist_id}", width=60)])
+            if o.has_pack:
+                rows.append([button(f"📦 Todo: {o.title}", f"{TORRENT_ALL}:{o.anilist_id}", width=60)])
         rows.append(cancel_row())
         await status.edit_text(text, parse_mode="HTML", reply_markup=InlineKeyboardMarkup(rows))
 

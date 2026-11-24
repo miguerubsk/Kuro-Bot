@@ -9,12 +9,19 @@ Kuro, bot de Telegram para pedir animes: busca el nombre en japanpaw.com, saca e
   cada petición necesita que el admin la apruebe. Las rechazadas no cuentan para el cupo.
 - Si el anime está en emisión, se avisa a quien lo pidió de que solo se bajan los
   capítulos publicados hasta ese momento.
+- `BLOCKED_ANIME` (por defecto `One Piece,Naruto`): lo que los clientes no pueden pedir. Basta
+  con que el título lo contenga («Naruto: Shippuuden», «One Piece Film: Red», «Boruto: Naruto
+  Next Generations»), así que no salen ni en los resultados. El admin sí puede. Vacío: sin bloqueos.
+- **Packs**: las temporadas de un anime llevan detrás «📦 Todo» (un solo encargo), y en el pack
+  entran también sus OVAs, especiales y películas («Monster Musume no Iru Nichijou OVA»,
+  «Gekijouban Seitokai Yakuindomo»), detrás de las temporadas.
 
 ## Seguimiento semanal (change-detection.io y el Drive)
 Si se pide algo en emisión (suelto o dentro de «todas las temporadas»), Kuro ofrece vigilarlo.
 Al cliente se le crea el seguimiento cuando el admin lo aprueba; al admin, al momento. Si ese
 anime ya se vigila (otro cliente o un watch hecho a mano), se apunta sin crear nada.
-Cada cliente tiene `TRACKING_LIMIT` seguimientos.
+Cada cliente tiene `TRACKING_LIMIT` seguimientos; apuntarse a algo que ya sigue otro no gasta
+cupo (aunque lo tenga lleno). En `/seguimientos`, el admin ve de quién es cada uno.
 
 Hay dos vigilantes, elegidos con `TRACKING_SOURCES`:
 - `changedetection`: un watch de la página de pastes que mira solo la rejilla de capítulos
@@ -54,15 +61,16 @@ Los dos acaban en el mismo encolado, que nunca baja dos veces lo mismo.
    añadiéndolos a mano); los activos no se recrean solos.
 
 ## Por torrent (lo que no está en la web)
-Si la búsqueda no encuentra nada, Kuro enseña las opciones de AniList (series, no películas) en
+Si la búsqueda no encuentra nada, Kuro enseña las opciones de AniList (series, OVAs y películas) en
 fichas con portada, sinopsis y géneros, como las de la web. Al elegir una, pregunta a
 Anime-Automator qué hay por torrent (`POST /torrent/check`, con `CALLBACK_SECRET`): capítulos,
 temporada y carpeta. Al confirmar es un encargo normal (un carro, visto bueno del admin, avisos de
 cada capítulo) que va a `POST /torrent/download`.
 
-- **Todas las temporadas**: si el anime tiene precuelas o secuelas, la ficha lleva «📦 Todas las
-  temporadas». Kuro sigue la cadena de AniList (pasando por especiales y películas, pero contando
-  solo las de TV/ONA), mira cada temporada y pide las que falten como un solo lote (un carro).
+- **Todo**: si el anime tiene precuelas, secuelas u OVAs/películas aparte, la ficha lleva «📦 Todo».
+  Kuro sigue la cadena de AniList: las temporadas (TV/ONA) y, en su sitio, las OVAs, especiales y
+  películas, también las que cuelgan aparte como «historia paralela» (la OVA de Monster Musume) y
+  sus secuelas (la película 2). Mira cada pieza y pide las que falten como un solo lote (un carro).
 - **Sinopsis**: la de AniList está en inglés. Con `TMDB_API_KEY` (gratis en themoviedb.org) se usa
   la de TMDB en español cuando la hay (es la de la serie entera, no la de cada temporada).
 
@@ -73,7 +81,9 @@ cada capítulo) que va a `POST /torrent/download`.
   pedirlo (lo suyo) o en el mensaje de aprobación (lo de un cliente).
 - `TORRENT_ACCESS`: `admin` (por defecto, solo tú), `all` (también los clientes) u `off`.
 - A los clientes se les dice que va «por los tejados (torrent)» y que tarda más; nunca se nombra la web.
-- Aún no: películas y lotes («01 ~ 11», lo único que hay de muchas series viejas).
+- Películas: se busca la película entera (sin número de capítulo, nunca un lote) y va donde las de la
+  web (la carpeta de su serie, como «Película 02.mkv», o la de películas).
+- Aún no: lotes («01 ~ 11», lo único que hay de muchas series viejas).
 
 ## Bloqueos
 Si la web da un certificado falso (bloqueo de LaLiga), se busca otra IP de Cloudflare por DoH.

@@ -1,7 +1,8 @@
 """
 Animes de AniList para pedir por torrent lo que la web no tiene: opciones de
-una búsqueda (con portada, sinopsis y géneros, para las fichas) y la cadena
-de temporadas de un anime (para «todas las temporadas»).
+una búsqueda (con portada, sinopsis y géneros, para las fichas) y el pack de
+un anime (para «todo»): sus temporadas y, con ellas, sus OVAs, especiales y
+películas.
 
 La sinopsis de AniList está en inglés. Con TMDB_API_KEY se busca antes en
 TMDB la de la serie en español; si no hay, va la de AniList.
@@ -28,13 +29,20 @@ SEARCH = ("query ($s: String) { Page(perPage: 8) { media(search: $s, type: ANIME
           "isAdult: false) {" + _FIELDS + "} } }")
 BY_ID = "query ($id: Int) { Media(id: $id, type: ANIME) {" + _FIELDS + "} }"
 
-# lo que se puede pedir por torrent (por número de capítulo: nada de películas)
-SERIES_FORMATS = ("TV", "TV_SHORT", "ONA", "OVA", "SPECIAL")
-# lo que cuenta como temporada en la cadena de «todas»
+# lo que se puede pedir por torrent
+SERIES_FORMATS = ("TV", "TV_SHORT", "ONA", "OVA", "SPECIAL", "MOVIE")
+# lo que cuenta como temporada en el pack
 MAIN_FORMATS = ("TV", "TV_SHORT", "ONA")
+# lo que va en el pack además de las temporadas
+EXTRA_FORMATS = ("OVA", "SPECIAL", "MOVIE")
+# relaciones de AniList por las que se llega a las temporadas y a los extras
+RELATIONS = ("PREQUEL", "SEQUEL", "SIDE_STORY", "PARENT")
 MAX_SEASONS = 12
+MAX_EXTRAS = 10
 MAX_HOPS = 25        # pasos por la cadena, contando especiales y películas
-FORMAT_TEXT = {"TV": "TV", "TV_SHORT": "TV corta", "ONA": "ONA", "OVA": "OVA", "SPECIAL": "especial"}
+FORMAT_TEXT = {"TV": "TV", "TV_SHORT": "TV corta", "ONA": "ONA", "OVA": "OVA", "SPECIAL": "especial",
+               "MOVIE": "película"}
+EXTRA_TAG = {"OVA": "OVA", "SPECIAL": "Especial", "MOVIE": "🎬 Película"}
 SEASON_TEXT = {"WINTER": "Invierno", "SPRING": "Primavera", "SUMMER": "Verano", "FALL": "Otoño"}
 GENRE_TEXT = {
     "Action": "Acción", "Adventure": "Aventura", "Comedy": "Comedia", "Drama": "Drama", "Ecchi": "Ecchi",
@@ -68,7 +76,7 @@ class Option:
     genres: list[str] = field(default_factory=list)
     season: str = ""                # «Otoño 2019»
     native: str = ""
-    # (PREQUEL/SEQUEL, id, formato): por ellas se recorre la cadena de temporadas
+    # (relación, id, formato): por ellas se llega a las temporadas y a los extras (ver RELATIONS)
     neighbours: list[tuple[str, int, str]] = field(default_factory=list)
 
     @property
@@ -76,9 +84,22 @@ class Option:
         return self.status == "RELEASING"
 
     @property
-    def has_seasons(self) -> bool:
-        """¿Puede tener otras temporadas? (tiene precuela o secuela; si al final no hay más, se pide sola)"""
-        return bool(self.neighbours)
+    def movie(self) -> bool:
+        return self.format == "MOVIE"
+
+    @property
+    def tag(self) -> str:
+        """«OVA», «Especial» o «🎬 Película» para los extras; "" para las temporadas (las numera Anime-Automator)."""
+        return EXTRA_TAG.get(self.format, "")
+
+    @property
+    def has_pack(self) -> bool:
+        """
+        ¿Puede tener más cosas (otras temporadas, OVAs, películas)? Si al
+        final no hay nada más, se pide sola.
+        """
+        return any(r in ("PREQUEL", "SEQUEL") or (r == "SIDE_STORY" and f in EXTRA_FORMATS)
+                   or (r == "PARENT" and f in MAIN_FORMATS) for r, _, f in self.neighbours)
 
     def step(self, rel: str, seen: set) -> int | None:
         """La precuela/secuela por la que seguir: mejor una de TV/ONA; si no, un especial, OVA o película."""
@@ -93,13 +114,13 @@ class Option:
         parts.append(FORMAT_TEXT.get(self.format, self.format.lower()))
         if self.releasing:
             parts.append("en emisión")
-        elif self.episodes:
+        elif self.episodes and not self.movie:
             parts.append(f"{self.episodes} caps.")
         return " · ".join(parts)
 
     def details(self, spanish: str = "") -> Details:
         """La ficha (portada, sinopsis, datos) como las de la web."""
-        eps = "En emisión" if self.releasing else (str(self.episodes) if self.episodes else "")
+        eps = "En emisión" if self.releasing else (str(self.episodes) if self.episodes and not self.movie else "")
         return Details(
             cover_url=self.cover_url, synopsis=spanish or self.description, episodes=eps,
             season=self.season or (str(self.year) if self.year else ""),
@@ -116,7 +137,7 @@ class Option:
             season += f" {m['seasonYear']}"
         neighbours = [(e["relationType"], int(e["node"]["id"]), e["node"].get("format") or "")
                       for e in ((m.get("relations") or {}).get("edges") or [])
-                      if e.get("relationType") in ("PREQUEL", "SEQUEL")
+                      if e.get("relationType") in RELATIONS
                       and (e.get("node") or {}).get("type") == "ANIME"
                       and (e.get("node") or {}).get("format") != "MUSIC"]
         return cls(int(m["id"]), t.get("romaji") or t.get("english") or "?", t.get("english") or "",
@@ -148,7 +169,7 @@ class AniListCatalog:
         return opt
 
     async def options(self, query: str, limit: int = 6) -> list[Option] | None:
-        """Animes (no películas) que encajan con la búsqueda; None si AniList no responde."""
+        """Animes (series, OVAs, especiales y películas) que encajan con la búsqueda; None si AniList no responde."""
         data = await self._query(SEARCH, {"s": query}, timeout=8)
         if data is None:
             return None
@@ -171,13 +192,16 @@ class AniListCatalog:
             out[o.anilist_id] = o.details(spanish)
         return out
 
-    async def seasons(self, anilist_id: int) -> list[Option]:
+    async def pack(self, anilist_id: int) -> list[Option]:
         """
-        Todas las temporadas (TV/ONA) del anime, de la primera a la última:
-        se va hacia atrás por las precuelas y luego hacia delante por las
-        secuelas, pasando por especiales, OVAs y películas (Dr. Stone va de
-        «Stone Wars» al especial «Ryuusui» y de ahí a «New World»), pero solo
-        cuentan las de TV/ONA. Si AniList falla a medias, lo que se haya reunido.
+        Todo lo de ese anime que se puede pedir, de lo primero a lo último: las
+        temporadas (TV/ONA) y, detrás de cada una, sus OVAs, especiales y
+        películas. Se va hacia atrás por las precuelas y luego hacia delante
+        por las secuelas, pasando por especiales, OVAs y películas (Dr. Stone va
+        de «Stone Wars» al especial «Ryuusei» y de ahí a «New World»); los
+        extras que cuelgan aparte («historia paralela», como la OVA de Monster
+        Musume) se recogen de cada paso. Si AniList falla a medias, lo que se
+        haya reunido.
         """
         start = await self.option(anilist_id)
         if start is None:
@@ -185,6 +209,9 @@ class AniListCatalog:
         first, seen = start, {start.anilist_id}
         for _ in range(MAX_HOPS):
             prev = first.step("PREQUEL", seen)
+            if prev is None and first.format not in MAIN_FORMATS:
+                # una OVA o película que cuelga de otra cosa (su serie, la OVA de la que sale)
+                prev = first.step("PARENT", seen)
             opt = await self.option(prev) if prev else None
             if opt is None:
                 break
@@ -198,8 +225,33 @@ class AniListCatalog:
                 break
             seen.add(opt.anilist_id)
             walk.append(opt)
-        # las que aún no se han estrenado no se pueden pedir
-        return [o for o in walk if o.format in MAIN_FORMATS and o.status != "NOT_YET_RELEASED"][:MAX_SEASONS]
+
+        out, mains, extras = [], 0, 0
+        for o in walk:
+            if o.format in MAIN_FORMATS and mains < MAX_SEASONS:
+                out.append(o)
+                mains += 1
+            elif o.format in EXTRA_FORMATS and extras < MAX_EXTRAS:
+                out.append(o)
+                extras += 1
+            # lo que cuelga aparte de este paso (otra secuela que no es la del camino, historias
+            # paralelas) y, de eso, sus secuelas (la película 2 de la película 1)
+            pending = [o]
+            while pending and extras < MAX_EXTRAS:
+                cur = pending.pop(0)
+                for rel, i, f in cur.neighbours:
+                    if rel not in ("SEQUEL", "SIDE_STORY") or f not in EXTRA_FORMATS or i in seen:
+                        continue
+                    if extras >= MAX_EXTRAS:
+                        break
+                    seen.add(i)
+                    side = await self.option(i)
+                    if side is not None:
+                        out.append(side)
+                        extras += 1
+                        pending.append(side)
+        # lo que aún no se ha estrenado no se puede pedir
+        return [o for o in out if o.status != "NOT_YET_RELEASED"]
 
 
 class SpanishSynopsis:

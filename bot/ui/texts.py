@@ -2,7 +2,7 @@
 
 import re
 
-from ..core.text import e, fmt_date
+from ..core.text import e, fmt_date, season_tag
 
 
 class Texts:
@@ -65,9 +65,10 @@ class Texts:
 
     def admin_request(self, req) -> str:
         if req.torrent:
-            kind = "🧲 por torrent" + (", en emisión" if req.airing else "")
+            kind = "🧲 por torrent" + (", película" if req.movie else ", en emisión" if req.airing else "")
+            season = f" — <b>T{e(req.season)}</b>" if req.season else ""
             return (self._say("admin_request", self.k.admin, who=req.user_name, req_id=req.id)
-                    + f"\n<b>{e(req.title)}</b> — <b>T{e(req.season or '1')}</b>\nTipo: {kind}\n{e(req.post_url)}")
+                    + f"\n<b>{e(req.title)}</b>{season}\nTipo: {kind}\n{e(req.post_url)}")
         label = f" — {e(req.label)}" if req.label else ""
         kind = "película" if req.movie else ("en emisión" if req.airing else "serie")
         return (self._say("admin_request", self.k.admin, who=req.user_name, req_id=req.id)
@@ -78,7 +79,7 @@ class Texts:
         lines = [self._say("admin_bundle_request", self.k.admin, who=first.user_name, bundle=first.bundle_id)]
         for r in reqs:
             t = seasons.get(r.id)
-            label = f" — {e(r.label)}" if r.label and r.label != f"T{t}" else ""
-            lines.append(f"\n<b>{'T' + e(t) + ' · ' if t else ''}{e(r.title)}</b>{label} (#{r.id})\n"
+            label = f" — {e(r.label)}" if r.label and r.label != season_tag(t) else ""
+            lines.append(f"\n<b>{e(season_tag(t)) + ' · ' if t else ''}{e(r.title)}</b>{label} (#{r.id})\n"
                          f"{e(r.post_url)}{notes.get(r.id, '')}")
         return "\n".join(lines)

@@ -4,6 +4,8 @@ import os
 import sys
 from dataclasses import dataclass
 
+from .core import blocklist
+
 
 def _int_set(raw: str) -> frozenset[int]:
     out = set()
@@ -45,6 +47,8 @@ class Settings:
     torrent_access: str = "admin"
     # sinopsis en español de lo que se pide por torrent (TMDB, clave gratuita); sin ella, la de AniList en inglés
     tmdb_api_key: str = ""
+    # animes que los clientes no pueden pedir (BLOCKED_ANIME, separados por comas)
+    blocked_anime: tuple = ("One Piece", "Naruto")
 
 
 def load() -> Settings:
@@ -79,6 +83,7 @@ def load() -> Settings:
             tracking_check_minutes=int(os.environ.get("TRACKING_CHECK_MINUTES", "60") or 60),
             torrent_access=_torrent_access(os.environ.get("TORRENT_ACCESS", "admin")),
             tmdb_api_key=os.environ.get("TMDB_API_KEY", "").strip(),
+            blocked_anime=blocklist.parse(os.environ.get("BLOCKED_ANIME")),
         )
     except ValueError as e:
         sys.exit(f"Valor inválido en el .env (los ids de chat, WEEKLY_LIMIT y TRACKING_* deben ser números): {e}")

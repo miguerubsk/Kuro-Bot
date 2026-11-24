@@ -10,16 +10,16 @@ Los pasos para quien pide:
 3. Confirma: TorrentPlacing hace el encargo como cualquier otro (carro,
    visto bueno del admin, avisos de progreso).
 
-«Todas las temporadas» (TorrentSeasons y TorrentBundlePlacing) sigue la
-cadena de precuelas y secuelas de AniList, mira cada una y las pide como un
-solo lote, igual que el «todas» de la web.
+«Todo» (TorrentSeasons y TorrentBundlePlacing) sigue la cadena de precuelas
+y secuelas de AniList (temporadas, OVAs, especiales y películas), mira cada
+cosa y lo pide como un solo lote, igual que el «todas» de la web.
 """
 
 from dataclasses import dataclass
 
 from telegram import InlineKeyboardMarkup
 
-from ..core.text import compress_ranges, e
+from ..core.text import compress_ranges, e, season_tag
 from ..ui.keyboards import TORRENT_ALL as ALL, TORRENT_GO as GO, TORRENT_GO_ALL as GO_ALL
 from ..ui.keyboards import TORRENT_OFFER as OFFER, button, cancel_row, season_row
 from ..ui.session import SeasonGroup
@@ -32,11 +32,12 @@ class TorrentPost:
     """Lo que se guarda como petición (hace el papel del PostInfo de la web)."""
     anilist_id: int
     title: str
-    season: str
+    season: str                 # la de Anime-Automator; "" en los extras (no se le corrige)
     airing: bool = False
+    movie: bool = False
+    tag: str = ""               # «OVA», «🎬 Película»… en los extras del pack
     source = "torrent"
     paste_url = ""
-    movie = False
 
     @property
     def post_id(self) -> int:
@@ -49,7 +50,7 @@ class TorrentPost:
 
     @property
     def label(self) -> str:
-        return f"T{self.season}" if self.season else ""
+        return self.tag or (f"T{self.season}" if self.season else "")
 
 
 def admin_note(result: dict) -> str:
@@ -65,9 +66,18 @@ def admin_note(result: dict) -> str:
 
 def offer_entry(anilist_id: int, result: dict, name: str, option) -> dict:
     """Lo que se recuerda de una oferta (en la sesión) hasta que se pide."""
-    return {"anilist_id": anilist_id, "name": name, "season": str(result.get("season") or "1"),
-            "missing": result.get("missing") or [], "airing": bool(option and option.releasing),
+    tag = option.tag if option else ""
+    movie = result.get("kind") == "movie" or bool(option and option.movie)
+    # a los extras no se les fija temporada: Anime-Automator los coloca como los de la web
+    season = "" if tag or movie else str(result.get("season") or "1")
+    return {"anilist_id": anilist_id, "name": name, "season": season, "tag": tag, "movie": movie,
+            "missing": result.get("missing") or [], "airing": bool(option and option.releasing and not movie),
             "note": admin_note(result)}
+
+
+def post_of(offer: dict) -> TorrentPost:
+    return TorrentPost(offer["anilist_id"], offer["name"], offer["season"], offer["airing"],
+                       offer.get("movie", False), offer.get("tag", ""))
 
 
 def is_best(result: dict) -> bool:
@@ -105,16 +115,20 @@ class TorrentOffer:
         await out.edit(self.say("torrent_error"))
 
     def _offer(self, anilist_id: int, result: dict, name: str, option):
+        entry = offer_entry(anilist_id, result, name, option)
         season = str(result.get("season") or "1")
         missing = result.get("missing") or []
-        self.cache[f"{anilist_id}:{season}"] = offer_entry(anilist_id, result, name, option)
-        parts = [self.say("torrent_offer", title=name, season=season, count=len(missing),
-                          ranges=compress_ranges(missing))]
-        if result.get("have"):
+        self.cache[f"{anilist_id}:{season}"] = entry
+        if entry["movie"]:
+            parts = [self.say("torrent_offer_movie", title=name)]
+        else:
+            parts = [self.say("torrent_offer", title=name, tag=entry["tag"] or f"T{season}", count=len(missing),
+                              ranges=compress_ranges(missing))]
+        if result.get("have") and not entry["movie"]:
             parts.append(self.say("torrent_have", have=result["have"]))
         parts.append(self.say("torrent_quality_best" if is_best(result) else "torrent_quality_mixed"))
         rows = [[button("🧲 Tráelo, nya", f"{GO}:{anilist_id}:{season}")]]
-        if self.k.is_admin(self.chat_id):
+        if self.k.is_admin(self.chat_id) and not entry["tag"] and not entry["movie"]:
             parts.append(self.say("torrent_season_hint"))
             rows.append(season_row(OFFER, anilist_id, season))
         rows.append(cancel_row())
@@ -142,7 +156,8 @@ class TorrentPlacing(Placing):
         prev = self.sub.already_active(-self.anilist_id)
         if prev:
             await self.stop("already_pending", title=prev.title)
-        self.post = TorrentPost(self.anilist_id, self.offer["name"], self.season, self.offer["airing"])
+        # la temporada puede venir corregida por el admin (flechas)
+        self.post = post_of({**self.offer, "season": self.season if self.offer["season"] else ""})
         return [Item(self.post)]
 
     def store(self, items):
@@ -160,10 +175,10 @@ class TorrentPlacing(Placing):
 
 
 class TorrentSeasons:
-    """Paso 2 de «todas las temporadas»: qué hay de cada una, y el botón para pedirlas como un encargo."""
+    """Paso 2 de «todo»: qué hay de cada temporada, OVA o película, y el botón para pedirlo como un encargo."""
 
     STATE = {"nothing_new": "✅ ya la tienes", "in_progress": "⏳ ya se está bajando",
-             "nothing_found": "✖️ nada con subtítulos en español", "unsupported": "✖️ no es una serie"}
+             "nothing_found": "✖️ nada con subtítulos en español", "unsupported": "✖️ no se puede pedir así"}
 
     def __init__(self, kuro, chat_id: int, session):
         self.k = kuro
@@ -175,8 +190,8 @@ class TorrentSeasons:
         start = await self.k.catalog.option(anilist_id)
         title = start.title if start else "…"
         await out.edit(self.say("torrent_seasons_searching", title=title))
-        chain = await self.k.catalog.seasons(anilist_id)
-        if len(chain) < 2:   # al final solo hay una: como la de siempre
+        chain = await self.k.catalog.pack(anilist_id)
+        if len(chain) < 2:   # al final solo hay una cosa: como la de siempre
             return await TorrentOffer(self.k, self.chat_id, self.session).show(out, anilist_id)
 
         offers, lines, states, best, base = [], [], set(), True, ""
@@ -184,16 +199,20 @@ class TorrentSeasons:
             result = await self.k.automator.torrent_check(opt.anilist_id)
             st = result.get("status")
             states.add(st)
-            season = str(result.get("season") or "?")
-            base = base or result.get("name") or opt.title
+            tag = opt.tag or f"T{result.get('season') or '?'}"
+            if not opt.tag:
+                base = base or result.get("name") or opt.title
             if st == "missing":
-                offers.append(offer_entry(opt.anilist_id, result, result.get("name") or opt.title, opt))
+                entry = offer_entry(opt.anilist_id, result, result.get("name") or opt.title, opt)
+                # "show": cómo sale en el lote («2», que se ve «T2», u «OVA»…)
+                offers.append({**entry, "show": opt.tag or str(result.get("season") or "1")})
                 best = best and is_best(result)
-                state = f"🧲 {compress_ranges(result.get('missing') or [])}"
+                state = "🧲 " + ("la película" if entry["movie"] else compress_ranges(result.get("missing") or []))
             else:
                 state = self.STATE.get(st, "⚠️ no he podido mirarla")
-            lines.append(f"<b>T{e(season)}</b> · {e(opt.title)}: {state}")
+            lines.append(f"<b>{e(tag)}</b> · {e(opt.title)}: {state}")
 
+        base = base or (chain[0].title if chain else "")
         if not offers:
             key = "bundle_all_have" if states <= {"nothing_new", "in_progress"} else "torrent_seasons_none"
             return await out.edit(self.say(key, title=base) + "\n\n" + "\n".join(lines))
@@ -201,13 +220,13 @@ class TorrentSeasons:
         self.session.torrent[f"b{bid}"] = {"base": base, "offers": offers}
         parts = [self.say("torrent_seasons_offer", title=base, count=len(offers)), "\n".join(lines),
                  self.say("torrent_quality_best" if best else "torrent_quality_mixed")]
-        label = "🧲 Tráela, nya" if len(offers) == 1 else f"🧲 Tráelas todas ({len(offers)}) · 1 encargo"
+        label = "🧲 Tráelo, nya" if len(offers) == 1 else f"🧲 Tráelo todo ({len(offers)}) · 1 encargo"
         kb = InlineKeyboardMarkup([[button(label, f"{GO_ALL}:{bid}")], cancel_row()])
         await out.edit("\n\n".join(parts), reply_markup=kb)
 
 
 class TorrentBundlePlacing(BundlePlacing):
-    """Paso 3 de «todas»: un lote de encargos por torrent (un carro, un visto bueno), como el de la web."""
+    """Paso 3 de «todo»: un lote de encargos por torrent (un carro, un visto bueno), como el de la web."""
 
     def __init__(self, kuro, submitter, out, bundle_key: int, session):
         self.bundle = session.torrent.get(f"b{bundle_key}")
@@ -220,10 +239,9 @@ class TorrentBundlePlacing(BundlePlacing):
         items = []
         for offer in self.bundle["offers"]:
             if self.sub.already_active(-offer["anilist_id"]):
-                self.skipped.append(f"T{offer['season']}")
+                self.skipped.append(season_tag(offer["show"]))
                 continue
-            post = TorrentPost(offer["anilist_id"], offer["name"], offer["season"], offer["airing"])
-            items.append(Item(post, offer["season"]))
+            items.append(Item(post_of(offer), offer["show"]))
         if not items:
             await self.stop("bundle_all_have", title=self.group.base)
         return items

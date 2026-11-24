@@ -89,7 +89,7 @@ def keyboard(cid: int, idx: int, deck: Deck) -> InlineKeyboardMarkup:
         # opciones de AniList: pid es el id de AniList y gid, si tiene más temporadas, también
         rows.append([button("🧲 Buscar este", f"{TORRENT_OFFER}:{ch.pid}")])
         if ch.gid:
-            rows.append([button("📦 Todas las temporadas · 1 encargo", f"{TORRENT_ALL}:{ch.gid}")])
+            rows.append([button("📦 Todo (temporadas, OVAs, pelis) · 1 encargo", f"{TORRENT_ALL}:{ch.gid}")])
         rows.append(cancel_row())
         return InlineKeyboardMarkup(rows)
     rows.append([button("✅ Pedir este", f"pick:{ch.pid}")])
