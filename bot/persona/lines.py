@@ -282,10 +282,10 @@ LINES: dict[str, list[str]] = {
         "⚠️ El perro del vecino se ha plantado en la puerta de {site}. Mejor volvemos luego, {voc}.",
     ],
     "blocked_anime": [
-        "🙀 Uy, {voc}: «{title}» está en la lista negra del miauestro. Es tan largo que no cabe en el "
-        "tejado, así que esa no la puedo pedir. ¿Probamos con otro?",
-        "😾 «{title}» no, {voc}: el miauestro lo tiene vetado (son cientos de capítulos). Pídeme cualquier "
+        "🙀 Uy, {voc}: «{title}» está en la lista negra del miauestro. ¿Probamos con otro?",
+        "😾 «{title}» no, {voc}: el miauestro lo tiene vetado. Pídeme cualquier "
         "otro y salgo corriendo.",
+	"🙀 Mi miauestro dice que esa presa no merece la pena {voc}, no me molesto. Prueba con otra.",
     ],
     "not_found": [
         "😿 Ni rastro de «{query}» en {site}, {voc}. Prueba con el título en romaji "

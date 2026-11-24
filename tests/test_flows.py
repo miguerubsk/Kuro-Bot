@@ -338,6 +338,25 @@ class TestSearch(KuroTest):
         self.assertTrue(extra_of("Seitokai Yakuindomo", "Gekijouban Seitokai Yakuindomo 2", True))
         self.assertFalse(extra_of("Kimetsu no Yaiba", "Kimetsu no Yaiba: Yuukaku-hen", False))
 
+    async def test_movie_with_another_name_joins_its_series(self):
+        """«Suzumiya Haruhi no Shoushitsu» no empieza por el nombre de la serie: lo dice AniList."""
+        self.site.with_details = False
+        self.site.results = [SearchResult(41, "Suzumiya Haruhi no Yuuutsu", "https://japanpaw.com/h"),
+                             SearchResult(42, "Suzumiya Haruhi no Shoushitsu", "https://japanpaw.com/hs"),
+                             SearchResult(43, "Nagato Yuki-chan no Shoushitsu", "https://japanpaw.com/n")]
+        self.site.kinds = {42: {"pelicula"}}
+        self.automator.season_info = [
+            {"key": "haruhi", "season": "1", "base": "Suzumiya Haruhi no Yūutsu"},
+            {"key": "shoshitsu", "season": "1", "base": "Suzumiya Haruhi no Shōshitsu",
+             "series": "Suzumiya Haruhi no Yuuutsu", "series_key": "haruhi", "format": "MOVIE"},
+            {"key": "nagato", "season": "1", "base": "Nagato Yuki-chan no Shōshitsu"}]
+        await self.type(FreeText, CLIENT, "suzumiya haruhi")
+        status = self.bot.to(CLIENT)[-1]
+        self.assertEqual(self.buttons(status), ["pick:41", "pick:42", "all:1", "pick:43", "cancel"])
+        texts = [b.text for row in status.reply_markup.inline_keyboard for b in row]
+        self.assertIn("🎬 Película · Suzumiya Haruhi no Shoushitsu", texts)
+        self.assertTrue(any("T1 + 1 extra" in t for t in texts), texts)
+
     async def test_stranger_is_denied(self):
         await self.type(FreeText, STRANGER, "anime a")
         self.assertEqual(len(self.bot.to(STRANGER)), 1)

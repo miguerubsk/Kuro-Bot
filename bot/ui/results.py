@@ -4,8 +4,9 @@ Resultados de búsqueda como opciones para elegir.
 Las temporadas de un mismo anime se marcan (T1, T2…), se ordenan y llevan
 detrás un botón para pedirlas todas como un solo encargo. Sus OVAs,
 especiales y películas («Monster Musume no Iru Nichijou OVA», «Gekijouban
-Seitokai Yakuindomo») van en el mismo pack, detrás de las temporadas. Las
-películas llevan 🎬.
+Seitokai Yakuindomo») van en el mismo pack, detrás de las temporadas; si
+el título no dice de qué serie son («Suzumiya Haruhi no Shoushitsu»), lo
+dice AniList (el "series_key" de /seasons). Las películas llevan 🎬.
 """
 
 import asyncio
@@ -113,8 +114,17 @@ class _Entry:
         return self.season.get("key") if self.season else None
 
     @property
+    def series_key(self):
+        """La serie de la que es este extra según AniList (aunque el título no la diga)."""
+        return self.season.get("series_key") if self.season else None
+
+    @property
+    def is_movie(self) -> bool:
+        return self.movie or bool(self.season and self.season.get("format") == "MOVIE")
+
+    @property
     def looks_extra(self) -> bool:
-        return self.movie or bool(EXTRA_RE.search(self.title))
+        return self.is_movie or bool(EXTRA_RE.search(self.title)) or bool(self.series_key)
 
     @property
     def tag(self) -> str:
@@ -150,11 +160,12 @@ class ResultsBuilder:
                 continue
             bases = sorted(((k, v[0].season.get("base") or v[0].title) for k, v in by_key.items()),
                            key=lambda kb: -len(kb[1]))
-            for k, base in bases:
-                if extra_of(base, en.title, en.movie):
-                    en.extra = extra_tag(en.title, en.movie)
-                    extras.setdefault(k, []).append(en)
-                    break
+            # AniList manda («Suzumiya Haruhi no Shoushitsu» es de «… no Yuuutsu»); si no, el título
+            match = en.series_key if en.series_key in by_key else next(
+                (k for k, base in bases if extra_of(base, en.title, en.is_movie)), None)
+            if match:
+                en.extra = extra_tag(en.title, en.is_movie)
+                extras.setdefault(match, []).append(en)
         # un pack: al menos dos temporadas distintas, o una temporada y algún extra
         multi = {k: v + extras.get(k, []) for k, v in by_key.items()
                  if len({en.season["season"] for en in v}) >= 2 or extras.get(k)}
