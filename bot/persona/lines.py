@@ -616,6 +616,14 @@ LINES: dict[str, list[str]] = {
         "solo, a menos que me pongas de guardia.",
     ],
     # ------------------------------------------------ progreso por capítulo
+    # en los encargos grandes no se avisa de cada capítulo: un aviso por tramo
+    "ep_batch": [
+        "🐾 <b>{name}</b> va avanzando: {n} de {total} capítulos ya en su sitio (el último, el {ep:02d}).",
+        "✅ Otro puñado de <b>{name}</b> en la cesta, {voc}: {n}/{total}. Kuro no para, nya.",
+        "🐟 <b>{name}</b>: ya van {n} de {total}. El {ep:02d} acaba de llegar, aún calentito.",
+        "🐾 Parte de caza de <b>{name}</b>: {n}/{total} capítulos entregados. Sigo en ello.",
+        "✅ <b>{name}</b> a buen ritmo, {voc}: {n} de {total}. Te aviso del siguiente tramo, nya.",
+    ],
     "ep_done": [
         "✅ <b>{name}</b> — capítulo {ep:02d} entregado ({n}/{total}). Nya~",
         "🐾 Capítulo {ep:02d} de <b>{name}</b> listo ({n}/{total}).",

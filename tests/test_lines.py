@@ -28,7 +28,7 @@ KEY_ARGS = {
     "approved": {"title"}, "approved_boss": {"title"}, "queued": {"count", "ranges"},
     "queued_untracked": {"count", "ranges"}, "rejected": {"title"}, "nothing_new": {"title"},
     "already_downloading": {"title"}, "tech_failure": {"title"}, "airing": {"progress"},
-    "ep_done": {"name", "ep", "n", "total"}, "ep_retry": {"name", "ep", "delay"},
+    "ep_done": {"name", "ep", "n", "total"}, "ep_batch": {"name", "ep", "n", "total"}, "ep_retry": {"name", "ep", "delay"},
     "ep_fallback": {"name", "ep"}, "ep_failed": {"name", "ep"}, "job_done_all": {"name", "done"},
     "job_done_partial": {"name", "done", "failed", "failed_ranges"}, "job_failed": {"name"},
     "movie_done": {"name"}, "movie_retry": {"name", "delay"}, "movie_failed": {"name"},

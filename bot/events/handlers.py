@@ -7,6 +7,7 @@ no se toca (abierto-cerrado).
 """
 
 import logging
+import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
@@ -63,12 +64,36 @@ class EventHandler(ABC):
     async def handle(self, ev: Event): ...
 
 
+NOTICES = 4   # avisos de progreso por encargo (más el de «completo»)
+
+
+def progress_step(total: int) -> int:
+    """Cada cuántos capítulos se avisa: 1 hasta NOTICES capítulos; si no, el total en NOTICES tramos."""
+    return max(1, math.ceil(total / NOTICES))
+
+
+def worth_telling(done: int | None, total: int | None) -> bool:
+    """
+    ¿Merece aviso el capítulo número `done` de `total`? El primero (ya ha
+    empezado) y cada tramo: con 12, el 1, 3, 6 y 9. El último no, que
+    justo después llega el de «completo». Sin total, todos.
+    """
+    if not total or not done:
+        return True
+    if done >= total:
+        return False
+    return done == 1 or done % progress_step(total) == 0
+
+
 @on_event("episode_done")
 class EpisodeDone(EventHandler):
     async def handle(self, ev):
         self._progress(ev)
-        if not ev.movie:  # en películas avisa job_complete, para no repetir
-            await self._tell(ev.to, "ep_done", name=ev.name, ep=ev.ep, n=ev.get("done"), total=ev.get("total"))
+        done, total = ev.get("done"), ev.get("total")
+        if ev.movie or not worth_telling(done, total):  # en películas avisa job_complete
+            return
+        key = "ep_batch" if total and done != 1 and progress_step(total) > 1 else "ep_done"
+        await self._tell(ev.to, key, name=ev.name, ep=ev.ep, n=done, total=total)
 
 
 @on_event("episode_retry")

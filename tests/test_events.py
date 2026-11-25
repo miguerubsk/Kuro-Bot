@@ -69,6 +69,33 @@ class EventsTest(KuroTest):
         return [m.text for m in self.bot.to(chat)[self.n[chat]:]]
 
 
+class TestEpisodeProgress(EventsTest):
+    def test_when_to_tell(self):
+        from bot.events.handlers import worth_telling
+        told = lambda total: [n for n in range(1, total + 1) if worth_telling(n, total)]
+        self.assertEqual(told(2), [1])                   # el último lo cuenta el aviso de «completo»
+        self.assertEqual(told(4), [1, 2, 3])
+        self.assertEqual(told(12), [1, 3, 6, 9])
+        self.assertEqual(told(24), [1, 6, 12, 18])
+        self.assertEqual(told(100), [1, 25, 50, 75])
+        self.assertTrue(worth_telling(7, None))          # sin total, como siempre: cada capítulo
+        self.assertTrue(worth_telling(7, 0))
+
+    async def test_a_big_order_gets_a_few_notices(self):
+        rid = await self.order(CLIENT)
+        self.n = {c: len(self.bot.to(c)) for c in (ADMIN, CLIENT)}
+        for n in range(1, 13):
+            await self.k.events.route({"job_id": str(rid), "event": "episode_done", "episode": n,
+                                       "done": n, "total": 12})
+        notices = self.new(CLIENT)
+        self.assertEqual(len(notices), 4)
+        self.assertTrue(said("ep_done", notices[0]))     # el primero: ya ha empezado
+        self.assertTrue(all(said("ep_batch", t) for t in notices[1:]), notices)
+        self.assertIn("6", notices[2])
+        self.assertIn("12", notices[2])
+        self.assertEqual(self.k.db.get(rid).eps_done, 12)   # el progreso se guarda siempre
+
+
 class TestEpisodeFailed(EventsTest):
     async def test_client_series(self):
         rid = await self.order(CLIENT)
