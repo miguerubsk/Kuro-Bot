@@ -84,28 +84,40 @@ class DirectFetcher(Fetcher):
         r.raise_for_status()
         return r.json() if want_json else r.text
 
-    async def fetch(self, url: str, want_json: bool = False):
+    async def _after_block(self, url: str, want_json: bool, ex: Blocked):
+        """La web bloquea la petición directa: se prueba el proxy (y se fija si va) o se pasa al navegador."""
         host = host_of(url)
+        if self.bypass.proxy and not self.bypass.proxied(host):
+            try:
+                data = self._decode(await self.bypass.get_proxied(url), want_json)
+            except (Blocked, httpx.HTTPError, ValueError) as ex2:
+                log.warning("Tampoco por el proxy (%s): %s", ex2, url)
+            else:
+                self.bypass.use_proxy(host)
+                return data
+        log.warning("La web bloquea la petición directa (%s), uso el navegador: %s", ex, url)
+        raise FetchFailed(str(ex)) from ex
+
+    async def fetch(self, url: str, want_json: bool = False):
         for attempt in range(1, self.ATTEMPTS + 1):
             try:
                 return self._decode(await self._get(url), want_json)
             except Blocked as ex:
-                if self.bypass.proxy and not self.bypass.proxied(host):
-                    try:
-                        data = self._decode(await self.bypass.get_proxied(url), want_json)
-                    except (Blocked, httpx.HTTPError, ValueError) as ex2:
-                        log.warning("Tampoco por el proxy (%s): %s", ex2, url)
-                    else:
-                        self.bypass.use_proxy(host)
-                        return data
-                log.warning("La web bloquea la petición directa (%s), uso el navegador: %s", ex, url)
-                raise FetchFailed(str(ex)) from ex
+                return await self._after_block(url, want_json, ex)
             except (httpx.HTTPError, ValueError) as ex:
                 log.warning("Error consultando %s (intento %s): %s", url, attempt, ex)
                 if attempt < self.ATTEMPTS:
                     await asyncio.sleep(2)
         log.info("Pruebo con el navegador tras fallar la petición directa")
         raise FetchFailed(url)
+
+
+def wait_challenge(page, seconds: int = 20):
+    """Espera (como mucho `seconds`) a que se resuelva un posible challenge de Cloudflare."""
+    for _ in range(seconds):
+        if not looks_blocked(200, page.content()):
+            break
+        page.wait_for_timeout(1000)
 
 
 class BrowserFetcher(Fetcher):
@@ -121,11 +133,7 @@ class BrowserFetcher(Fetcher):
             try:
                 page = browser.new_context().new_page()
                 page.goto(url, wait_until="domcontentloaded", timeout=45000)
-                # espera a que se resuelva un posible challenge de Cloudflare
-                for _ in range(20):
-                    if not looks_blocked(200, page.content()):
-                        break
-                    page.wait_for_timeout(1000)
+                wait_challenge(page)
                 return page.content(), page.inner_text("body")
             finally:
                 browser.close()

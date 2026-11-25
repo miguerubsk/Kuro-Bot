@@ -7,9 +7,9 @@ import logging
 import re
 from dataclasses import dataclass
 
-import httpx
-
-from .aliases import ANILIST_URL, related
+from . import anilist
+from .aliases import about
+from .anilist import names as _names
 from .japanpaw.ranking import norm
 
 log = logging.getLogger(__name__)
@@ -51,27 +51,10 @@ def title_key(text: str) -> str:
     return t
 
 
-def _names(m: dict) -> list[str]:
-    t = m.get("title") or {}
-    return [x for x in (t.get("romaji"), t.get("english"), *(m.get("synonyms") or [])) if x]
-
-
 class AiringClient:
-    async def _query(self, query: str, variables: dict, timeout: float = 10) -> dict | None:
-        try:
-            async with httpx.AsyncClient(timeout=timeout) as c:
-                r = await c.post(ANILIST_URL, json={"query": query, "variables": variables})
-                r.raise_for_status()
-                return r.json().get("data") or {}
-        except Exception as ex:
-            log.warning("AniList no ha respondido (%s): %s", variables, ex)
-            return None
-
     async def lookup(self, title: str) -> Airing | None:
         """El anime de ese título; entre los parecidos, mejor uno que siga en emisión."""
-        data = await self._query(SEARCH, {"s": title})
-        media = ((data or {}).get("Page") or {}).get("media") or []
-        media = [m for m in media if any(related(title, n) for n in _names(m))]
+        media = about(title, anilist.media(await anilist.query(SEARCH, {"s": title})))
         if not media:
             return None
         best = next((m for m in media if m.get("nextAiringEpisode")), None) or media[0]
@@ -86,13 +69,13 @@ class AiringClient:
         want = title_key(title)
         if len(want) < 3:
             return None
-        data = await self._query(SEARCH, {"s": title}, timeout=6)
-        for m in ((data or {}).get("Page") or {}).get("media") or []:
+        data = await anilist.query(SEARCH, {"s": title}, timeout=6)
+        for m in anilist.media(data):
             if want in {title_key(n) for n in _names(m)}:
                 return Airing.from_media(m)
         return None
 
     async def by_id(self, anilist_id: int) -> Airing | None:
-        data = await self._query(BY_ID, {"id": anilist_id})
+        data = await anilist.query(BY_ID, {"id": anilist_id})
         m = (data or {}).get("Media")
         return Airing.from_media(m) if m else None

@@ -57,24 +57,31 @@ class CoverCache:
 
 
 def caption(choice: Choice, d: Details) -> str:
+    head, plain_len = f"<b>{e(choice.label)}</b>", len(choice.label)
+    for extra in (" · ".join(_facts(choice, d)), d.genres):
+        if extra:
+            head += f"\n<i>{e(extra)}</i>"
+            plain_len += 1 + len(extra)
+    syn = d.synopsis or "(Sin sinopsis, nya. Habrá que fiarse del título.)"
+    return f"{head}\n\n{e(_cut(syn, CAPTION_MAX - plain_len - 2))}"
+
+
+def _facts(choice: Choice, d: Details) -> list[str]:
+    """Emisión o capítulos, temporada (o año), vídeo y aviso."""
     facts = []
     eps = (d.episodes or "").strip()
     if "emisi" in eps.lower():
         facts.append("📡 en emisión")
     elif eps.isdigit() and not (choice.movie and eps == "1"):
         facts.append(f"{eps} caps.")
-    facts += [x for x in (d.season or d.premiere[:4], d.video, d.note) if x]
+    return facts + [x for x in (d.season or d.premiere[:4], d.video, d.note) if x]
 
-    head, plain_len = f"<b>{e(choice.label)}</b>", len(choice.label)
-    for extra in (" · ".join(facts), d.genres):
-        if extra:
-            head += f"\n<i>{e(extra)}</i>"
-            plain_len += 1 + len(extra)
-    syn = d.synopsis or "(Sin sinopsis, nya. Habrá que fiarse del título.)"
-    room = CAPTION_MAX - plain_len - 2
-    if len(syn) > room:
-        syn = syn[: max(room - 1, 0)].rsplit(" ", 1)[0].rstrip(",.;:") + "…"
-    return f"{head}\n\n{e(syn)}"
+
+def _cut(text: str, room: int) -> str:
+    """Si no cabe, se corta por una palabra y se termina en «…»."""
+    if len(text) <= room:
+        return text
+    return text[: max(room - 1, 0)].rsplit(" ", 1)[0].rstrip(",.;:") + "…"
 
 
 def keyboard(cid: int, idx: int, deck: Deck) -> InlineKeyboardMarkup:

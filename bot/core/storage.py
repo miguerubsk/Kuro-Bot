@@ -172,13 +172,16 @@ class Storage:
     def set_status(self, req_id: int, status: str):
         self._write("UPDATE requests SET status=?, decided_at=? WHERE id=?", (status, time.time(), req_id))
 
-    def transition(self, req_id: int, from_states: tuple[str, ...], to_state: str) -> bool:
+    def _transition(self, table: str, row_id: int, from_states: tuple[str, ...], to_state: str) -> bool:
         """Cambia el estado solo si está en uno de from_states (evita dobles decisiones)."""
         cur = self._write(
-            f"UPDATE requests SET status=?, decided_at=? WHERE id=? AND status IN ({_marks(from_states)})",
-            (to_state, time.time(), req_id, *from_states),
+            f"UPDATE {table} SET status=?, decided_at=? WHERE id=? AND status IN ({_marks(from_states)})",
+            (to_state, time.time(), row_id, *from_states),
         )
         return cur.rowcount == 1
+
+    def transition(self, req_id: int, from_states: tuple[str, ...], to_state: str) -> bool:
+        return self._transition("requests", req_id, from_states, to_state)
 
     def set_progress(self, req_id: int, total=None, done=None, failed=None):
         self._write(
@@ -310,10 +313,7 @@ class Storage:
         return self._tracking(self._first("SELECT * FROM trackings WHERE id=?", (tid,)))
 
     def track_transition(self, tid: int, from_states: tuple[str, ...], to_state: str) -> bool:
-        cur = self._write(
-            f"UPDATE trackings SET status=?, decided_at=? WHERE id=? AND status IN ({_marks(from_states)})",
-            (to_state, time.time(), tid, *from_states))
-        return cur.rowcount == 1
+        return self._transition("trackings", tid, from_states, to_state)
 
     def track_update(self, tid: int, **fields):
         if "schedule" in fields:

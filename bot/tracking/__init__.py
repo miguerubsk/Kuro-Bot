@@ -57,6 +57,7 @@ RESYNC_EVERY = 10 * 60              # reintento de la lista del Drive si no lleg
 K_DRIVE_SYNCED = "drive_watches_synced"
 K_CD_MINUTES = "cd_check_minutes"   # intervalo con el que están los watches de change-detection
 FINISHED_GRACE = 14 * 24 * 3600     # AniList dice «terminado», pero puede faltar subir el último
+ANILIST_PAUSE = 3                   # entre anime y anime del repaso: AniList limita a ~30 consultas por minuto
 
 
 class Tracker:
@@ -159,36 +160,43 @@ class Tracker:
         if shared_now:
             db.track_update(t.id, shared=True)
 
-        schedule = await self.plan(t)
+        when = (await self.plan(t)).describe()
         t = db.track_get(t.id)
-        when = schedule.describe()
-
         shared = db.track_active_for_url(t.paste_url)
-        if shared:  # ya se vigila: se apunta sin crear nada
-            db.track_update(t.id, watch_uuid=shared[0].watch_uuid, owned=shared[0].owned,
-                            watch_title=shared[0].watch_title)
-            db.track_transition(t.id, (TrackStatus.PENDING,), TrackStatus.ACTIVE)
-            if not self.k.is_admin(to):
-                await self.k.messenger.send(self.k.admin, self._say(
-                    "track_admin_joined", self.k.admin, who=t.user_name, title=t.title))
-            return self._say("track_joined", to, title=t.title, when=when)
-
+        if shared:
+            return await self._join(t, shared[0], when)
         if self.k.is_admin(to):
-            ok, detail = await self.activate(t)
-            if not ok:
-                return self._say("track_failed", to, title=t.title) + f"\n<code>{e(detail)}</code>"
-            return self._say("track_active", to, title=t.title, when=when)
+            return await self._activate_for_admin(t, when)
+        return await self._ask_admin(t, when)
 
+    async def _join(self, t, shared, when: str) -> str:
+        """Ya se vigila (`shared`): se apunta sin crear nada (y al miauestro se le cuenta, si es un cliente)."""
+        db, to = self.k.db, t.chat_id
+        db.track_update(t.id, watch_uuid=shared.watch_uuid, owned=shared.owned, watch_title=shared.watch_title)
+        db.track_transition(t.id, (TrackStatus.PENDING,), TrackStatus.ACTIVE)
+        if not self.k.is_admin(to):
+            await self.k.messenger.send(self.k.admin, self._say(
+                "track_admin_joined", self.k.admin, who=t.user_name, title=t.title))
+        return self._say("track_joined", to, title=t.title, when=when)
+
+    async def _activate_for_admin(self, t, when: str) -> str:
+        ok, detail = await self.activate(t)
+        if not ok:
+            return self._say("track_failed", t.chat_id, title=t.title) + f"\n<code>{e(detail)}</code>"
+        return self._say("track_active", t.chat_id, title=t.title, when=when)
+
+    async def _ask_admin(self, t, when: str) -> str:
+        """Un cliente: el miauestro decide. Si no se le puede preguntar, la oferta vuelve a estar abierta."""
         try:
             msg = await self.k.messenger.bot.send_message(
                 self.k.admin, self.admin_text(t), parse_mode=ParseMode.HTML, disable_web_page_preview=True,
                 reply_markup=self.admin_keyboard(t))
         except TelegramError:
             log.exception("No se pudo enviar el seguimiento #%s al admin", t.id)
-            db.track_transition(t.id, (TrackStatus.PENDING,), TrackStatus.OFFERED)
-            return self._say("admin_unreachable", to)
+            self.k.db.track_transition(t.id, (TrackStatus.PENDING,), TrackStatus.OFFERED)
+            return self._say("admin_unreachable", t.chat_id)
         log.info("Seguimiento #%s (%s) pendiente del admin (mensaje %s)", t.id, t.title, msg.message_id)
-        return self._say("track_sent", to, title=t.title, when=when)
+        return self._say("track_sent", t.chat_id, title=t.title, when=when)
 
     # ------------------------------------------------------------ horario
     async def plan(self, t) -> Schedule:
@@ -197,17 +205,19 @@ class Tracker:
         if info and info.next_at:
             s = Schedule.from_airing(info.next_at, self.tz, self.window)
         else:
-            s = None
-            try:
-                details = await self.k.site.details([t.post_id])
-                d = details.get(t.post_id)
-                s = Schedule.from_premiere(d.premiere, self.tz) if d else None
-            except Exception:
-                log.warning("Sin ficha para el horario de %s", t.title, exc_info=True)
-            s = s or Schedule.always()
+            s = await self._premiere(t) or Schedule.always()
         self.k.db.track_update(t.id, schedule=s.to_dict(), anilist_id=info.anilist_id if info else 0)
         log.info("Horario de %s: %s (%s)", t.title, s.describe(), s.source or "sin datos")
         return s
+
+    async def _premiere(self, t) -> Schedule | None:
+        """La ventana del día del estreno, según la ficha de la web (None si no hay ficha o no lo dice)."""
+        try:
+            d = (await self.k.site.details([t.post_id])).get(t.post_id)
+        except Exception:
+            log.warning("Sin ficha para el horario de %s", t.title, exc_info=True)
+            return None
+        return Schedule.from_premiere(d.premiere, self.tz) if d else None
 
     # ------------------------------------------------------------ admin
     def admin_text(self, t) -> str:
@@ -304,24 +314,30 @@ class Tracker:
         async with self._sync_lock:
             if not self.use_drive and not db.kv_get(K_DRIVE_SYNCED):
                 return True
-            out: dict[str, dict] = {}
-            for t in db.track_list() if self.use_drive else []:   # los activos
-                if t.paste_url in out:
-                    continue
-                title = t.watch_title
-                if not title:   # seguimientos de antes: se calcula una vez
-                    title = await self._watch_title(t)
-                    for same in db.track_active_for_url(t.paste_url):
-                        db.track_update(same.id, watch_title=title)
-                out[t.paste_url] = {"watch_url": t.paste_url, "title": title,
-                                    "schedule": Schedule.from_dict(t.schedule).to_dict() if t.schedule else {},
-                                    "timezone": self.tz_name}
-            ok = await self.k.automator.sync_watches(list(out.values()))
+            watches = await self._drive_watches() if self.use_drive else []
+            ok = await self.k.automator.sync_watches(watches)
             self._sync_pending = not ok
             if ok:
                 db.kv_set(K_DRIVE_SYNCED, 1 if self.use_drive else 0)
-                log.info("Lista del Drive enviada a Anime-Automator: %s anime(s)", len(out))
+                log.info("Lista del Drive enviada a Anime-Automator: %s anime(s)", len(watches))
             return ok
+
+    async def _drive_watches(self) -> list[dict]:
+        """Un watch por URL de los seguimientos activos, con su título y su ventana."""
+        out: dict[str, dict] = {}
+        for t in self.k.db.track_list():
+            if t.paste_url not in out:
+                out[t.paste_url] = {"watch_url": t.paste_url, "title": t.watch_title or await self._backfill_title(t),
+                                    "schedule": Schedule.from_dict(t.schedule).to_dict() if t.schedule else {},
+                                    "timezone": self.tz_name}
+        return list(out.values())
+
+    async def _backfill_title(self, t) -> str:
+        """Seguimientos de antes, sin título del watch: se calcula una vez y se guarda en todos los de esa URL."""
+        title = await self._watch_title(t)
+        for same in self.k.db.track_active_for_url(t.paste_url):
+            self.k.db.track_update(same.id, watch_title=title)
+        return title
 
     async def poll_now(self, t) -> dict:
         """Que Anime-Automator mire ya ese anime en el Drive (aunque esté fuera de la ventana)."""
@@ -374,7 +390,7 @@ class Tracker:
             groups.setdefault(t.paste_url, []).append(t)
         for url, ts in groups.items():
             await self._maintain_one(url, ts)
-            await asyncio.sleep(3)   # AniList limita a ~30 consultas por minuto
+            await asyncio.sleep(ANILIST_PAUSE)
         await self.retire_cd()
         await self.refresh_cd_interval()
         await self.sync_automator()
@@ -401,29 +417,49 @@ class Tracker:
         db.kv_set(K_CD_MINUTES, self.cd.check_minutes)
 
     async def _maintain_one(self, url: str, ts: list):
-        first, db = ts[0], self.k.db
+        """Repasa los seguimientos de una URL: ¿sigue en emisión? ¿ha cambiado la hora?"""
+        first = ts[0]
         try:
             post = await self.k.site.get_post(first.post_url, first.post_id, first.title)
         except Exception as ex:
             log.warning("No pude releer %s para el seguimiento: %s", first.post_url, ex)
             return
         info = await self.airing.by_id(first.anilist_id) if first.anilist_id else None
-        # la web puede no marcarlo: si AniList dice que se sigue emitiendo, no se acaba
-        finished = not post.airing and not (info and info.status == "RELEASING")
+        if self._finished(url, post, info):
+            await self._end(ts)
+        else:
+            await self._reschedule(ts, await self._fresh_schedule(first, info))
+
+    def _finished(self, url: str, post, info) -> bool:
+        """
+        Se acaba si la web ya no lo marca en emisión y AniList no dice que se
+        siga emitiendo; si la web aún lo marca pero AniList lo da por
+        terminado, se espera FINISHED_GRACE (puede faltar subir el último).
+        """
+        status = info.status if info else None
+        if status == "RELEASING":
+            return False
+        if not post.airing:
+            return True
+        if status != "FINISHED":
+            return False
         key = f"track_finished_since:{url}"
-        if not finished and info and info.status == "FINISHED":
-            since = db.kv_get(key) or time.time()
-            db.kv_set(key, since)
-            finished = time.time() - since > FINISHED_GRACE
-        if finished:
-            log.info("%s ya no está en emisión: fin del seguimiento", first.title)
-            for t in ts:
-                await self.stop(t, "track_ended")
-            if not self.k.is_admin(first.chat_id) or len(ts) > 1:
-                await self.k.messenger.send(self.k.admin, self._say("track_admin_ended", self.k.admin,
-                                                                    title=first.title))
-            return
-        new = await self._fresh_schedule(first, info)
+        since = self.k.db.kv_get(key) or time.time()
+        self.k.db.kv_set(key, since)
+        return time.time() - since > FINISHED_GRACE
+
+    async def _end(self, ts: list):
+        first = ts[0]
+        log.info("%s ya no está en emisión: fin del seguimiento", first.title)
+        for t in ts:
+            await self.stop(t, "track_ended")
+        if not self.k.is_admin(first.chat_id) or len(ts) > 1:
+            await self.k.messenger.send(self.k.admin, self._say("track_admin_ended", self.k.admin,
+                                                                title=first.title))
+
+    async def _reschedule(self, ts: list, new: Schedule | None):
+        """Si la ventana ha cambiado, se aplica al watch (si es de Kuro) y a todos los seguimientos."""
+        first = ts[0]
         if new is None or new.to_dict() == (first.schedule or {}):
             return
         if self.use_cd and first.owned and first.watch_uuid:
@@ -434,7 +470,7 @@ class Tracker:
                 return
         log.info("Nuevo horario para %s: %s", first.title, new.describe())
         for t in ts:
-            db.track_update(t.id, schedule=new.to_dict())
+            self.k.db.track_update(t.id, schedule=new.to_dict())
 
     async def _fresh_schedule(self, t, info) -> Schedule | None:
         """
@@ -446,12 +482,7 @@ class Tracker:
         old = t.schedule or {}
         if old.get("source") != "estreno" and int(old.get("hours") or 0) <= Schedule.from_dict(old).hours:
             return None
-        try:
-            d = (await self.k.site.details([t.post_id])).get(t.post_id)
-        except Exception:
-            log.warning("Sin ficha para recalcular el horario de %s", t.title, exc_info=True)
-            d = None
-        return (Schedule.from_premiere(d.premiere, self.tz) if d else None) or Schedule.from_dict(old)
+        return await self._premiere(t) or Schedule.from_dict(old)
 
 
 def _tz_name() -> str:

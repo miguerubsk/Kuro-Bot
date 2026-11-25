@@ -72,20 +72,24 @@ class Messenger:
         for item_id, chat_id, text, created_at in self.db.outbox_items():
             if time.time() - created_at > self.OUTBOX_MAX_AGE:
                 log.error("Aviso al chat %s descartado tras 7 días sin poder entregarse", chat_id)
-                self.db.outbox_delete(item_id)
-                continue
-            try:
-                await self._deliver(chat_id, text)
-            except RetryAfter as ex:
-                delay = ex.retry_after   # segundos o timedelta, según la versión
-                await asyncio.sleep(delay.total_seconds() if hasattr(delay, "total_seconds") else float(delay))
-                return
-            except (BadRequest, Forbidden) as ex:
-                log.warning("Aviso pendiente al chat %s descartado: %s", chat_id, ex)
-            except NetworkError:
-                return  # sigue sin haber conexión: se prueba en la próxima vuelta
-            except TelegramError as ex:
-                log.warning("Aviso pendiente al chat %s descartado: %s", chat_id, ex)
-            else:
-                log.info("Aviso pendiente entregado al chat %s", chat_id)
+            elif not await self._redeliver(chat_id, text):
+                return   # Telegram aún no está para avisos: se sigue en la próxima vuelta
             self.db.outbox_delete(item_id)
+
+    async def _redeliver(self, chat_id: int, text: str) -> bool:
+        """Reenvía un aviso pendiente. False si hay que parar (y dejarlo en el buzón)."""
+        try:
+            await self._deliver(chat_id, text)
+        except RetryAfter as ex:
+            delay = ex.retry_after   # segundos o timedelta, según la versión
+            await asyncio.sleep(delay.total_seconds() if hasattr(delay, "total_seconds") else float(delay))
+            return False
+        except (BadRequest, Forbidden) as ex:   # va antes: BadRequest hereda de NetworkError
+            log.warning("Aviso pendiente al chat %s descartado: %s", chat_id, ex)
+        except NetworkError:
+            return False   # sigue sin haber conexión
+        except TelegramError as ex:
+            log.warning("Aviso pendiente al chat %s descartado: %s", chat_id, ex)
+        else:
+            log.info("Aviso pendiente entregado al chat %s", chat_id)
+        return True

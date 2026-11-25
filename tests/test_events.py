@@ -1,0 +1,158 @@
+"""Avisos de Anime-Automator: el endpoint /events y lo que Kuro cuenta de cada uno."""
+
+from aiohttp.test_utils import TestClient, TestServer
+
+from bot.core.models import Status
+from bot.events.server import EventServer
+from bot.handlers.orders import Decision, Pick
+from tests.test_flows import ADMIN, CLIENT, KuroTest, said
+
+
+class TestEndpoint(KuroTest):
+    async def asyncSetUp(self):
+        self.server = EventServer(self.k.events, "s3cret", 0)
+        self.http = TestClient(TestServer(self.server.app()))
+        await self.http.start_server()
+        self.addAsyncCleanup(self.http.close)
+
+    async def post(self, body, secret="s3cret", **kw):
+        return await self.http.post("/events", headers={"X-Callback-Secret": secret}, **kw,
+                                    **({} if "data" in kw else {"json": body}))
+
+    async def test_needs_the_secret(self):
+        self.assertEqual((await self.post({}, secret="otro")).status, 403)
+        self.assertEqual((await self.http.post("/events", json={})).status, 403)
+
+    async def test_bad_json(self):
+        r = await self.post(None, data=b"{no es json")
+        self.assertEqual(r.status, 400)
+
+    async def test_event_reaches_the_client(self):
+        await self.press(Pick, CLIENT, "pick:11")
+        await self.press(Decision, ADMIN, "ok:1", message=self.admin_request_msg())
+        r = await self.post({"job_id": "1", "event": "episode_done", "episode": 1, "done": 1, "total": 2})
+        self.assertEqual((r.status, await r.json()), (200, {"ok": True}))
+        self.assertTrue(said("ep_done", self.bot.to(CLIENT)[-1].text))
+
+    async def test_a_failure_still_answers_ok(self):
+        async def broken(ev):
+            raise RuntimeError("roto")
+        self.k.events.route = broken
+        with self.assertLogs("bot.events.server", "ERROR"):
+            r = await self.post({"job_id": "1"})
+        self.assertEqual(r.status, 200)   # un reintento solo duplicaría mensajes
+
+    async def test_without_secret_nothing_is_accepted(self):
+        server = EventServer(self.k.events, "", 0)
+        with self.assertLogs("bot.events.server", "WARNING"):
+            await server.start()           # ni siquiera escucha
+        await server.stop()
+        async with TestClient(TestServer(server.app())) as http:
+            r = await http.post("/events", headers={"X-Callback-Secret": ""}, json={})
+            self.assertEqual(r.status, 403)
+
+
+class EventsTest(KuroTest):
+    async def order(self, chat, post="11"):
+        """Un pedido ya aprobado (en marcha); devuelve su id."""
+        await self.press(Pick, chat, f"pick:{post}")
+        rid = self.k.db.last_request_of(chat).id
+        if chat != ADMIN:
+            await self.press(Decision, ADMIN, f"ok:{rid}", message=self.admin_request_msg())
+        return rid
+
+    async def event(self, rid, event, **kw):
+        self.n = {c: len(self.bot.to(c)) for c in (ADMIN, CLIENT)}
+        await self.k.events.route({"job_id": str(rid), "event": event, **kw})
+
+    def new(self, chat):
+        return [m.text for m in self.bot.to(chat)[self.n[chat]:]]
+
+
+class TestEpisodeFailed(EventsTest):
+    async def test_client_series(self):
+        rid = await self.order(CLIENT)
+        await self.event(rid, "episode_failed", episode=3, error="<timeout>", failed=1, total=2)
+        (client,), (admin,) = self.new(CLIENT), self.new(ADMIN)
+        self.assertTrue(said("ep_failed", client))
+        self.assertNotIn("timeout", client)               # el detalle técnico, solo al miauestro
+        self.assertTrue(said("admin_ep_failed", admin))
+        self.assertIn("&lt;timeout&gt;", admin)
+        self.assertEqual(self.k.db.get(rid).eps_failed, 1)
+
+    async def test_client_movie(self):
+        rid = await self.order(CLIENT)
+        await self.event(rid, "episode_failed", error="boom", kind="movie")
+        self.assertEqual(self.new(CLIENT), [])            # ya se le avisa al final (job_complete)
+        (admin,) = self.new(ADMIN)
+        self.assertTrue(said("admin_movie_failed", admin))
+
+    async def test_admin_series(self):
+        rid = await self.order(ADMIN)
+        await self.event(rid, "episode_failed", episode=3, error="boom")
+        (text,) = self.new(ADMIN)                         # un solo aviso, con el detalle
+        self.assertTrue(said("ep_failed", text))
+        self.assertIn("<code>boom</code>", text)
+
+    async def test_admin_movie(self):
+        rid = await self.order(ADMIN)
+        await self.event(rid, "episode_failed", error="boom", kind="movie")
+        (text,) = self.new(ADMIN)
+        self.assertTrue(said("movie_failed", text))
+        self.assertIn("<code>boom</code>", text)
+
+
+class TestJobComplete(EventsTest):
+    async def test_everything_arrived(self):
+        rid = await self.order(CLIENT)
+        await self.event(rid, "job_complete", done=[1, 2], failed=[])
+        (client,), (admin,) = self.new(CLIENT), self.new(ADMIN)
+        self.assertTrue(said("job_done_all", client))
+        self.assertTrue(said("admin_job_done", admin))
+        self.assertEqual(self.k.db.get(rid).status, Status.COMPLETED)
+
+    async def test_some_failed(self):
+        rid = await self.order(CLIENT)
+        await self.event(rid, "job_complete", done=[1], failed=[2, 3])
+        self.assertTrue(said("job_done_partial", self.new(CLIENT)[0]))
+        self.assertIn("(2-3)", self.new(ADMIN)[0])
+
+    async def test_nothing_arrived(self):
+        rid = await self.order(CLIENT)
+        await self.event(rid, "job_complete", done=[], failed=[1, 2])
+        self.assertTrue(said("job_failed", self.new(CLIENT)[0]))
+        self.assertEqual(self.k.db.get(rid).status, Status.FAILED)   # devuelve el carro
+        self.assertTrue(said("admin_job_done", self.new(ADMIN)[0]))
+
+    async def test_movie(self):
+        rid = await self.order(CLIENT)
+        await self.event(rid, "job_complete", done=[1], failed=[], kind="movie")
+        self.assertTrue(said("movie_done", self.new(CLIENT)[0]))
+        rid = await self.order(CLIENT, post="12")
+        await self.event(rid, "job_complete", done=[], failed=[1], kind="movie")
+        self.assertTrue(said("movie_failed", self.new(CLIENT)[0]))
+        self.assertNotIn("(1)", self.new(ADMIN)[0])       # en películas no se listan capítulos
+
+    async def test_admin_movie_that_failed(self):
+        rid = await self.order(ADMIN)
+        await self.event(rid, "job_complete", done=[], failed=[1], kind="movie")
+        self.assertEqual(self.new(ADMIN), [])             # ya se le dijo, con el detalle, en episode_failed
+
+
+class TestOtherEvents(EventsTest):
+    async def test_retry_only_the_first_time(self):
+        rid = await self.order(CLIENT)
+        await self.event(rid, "episode_retry", episode=2, attempt=1, delay="5 min")
+        self.assertTrue(said("ep_retry", self.new(CLIENT)[0]))
+        await self.event(rid, "episode_retry", episode=2, attempt=2)
+        self.assertEqual(self.new(CLIENT), [])
+
+    async def test_fallback_and_unknown(self):
+        rid = await self.order(CLIENT)
+        await self.event(rid, "episode_fallback", episode=2)
+        self.assertTrue(said("ep_fallback", self.new(CLIENT)[0]))
+        with self.assertLogs("bot.events.handlers", "WARNING"):
+            await self.event(rid, "algo_nuevo")
+        self.assertEqual(self.new(CLIENT), [])
+        with self.assertLogs("bot.events.handlers", "WARNING"):
+            await self.event("no-es-un-id", "episode_done")

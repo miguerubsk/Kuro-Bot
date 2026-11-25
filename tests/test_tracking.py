@@ -2,6 +2,8 @@
 
 import unittest
 from datetime import datetime
+from types import SimpleNamespace
+from unittest import mock
 from zoneinfo import ZoneInfo
 
 from bot.core.models import TrackStatus
@@ -11,8 +13,9 @@ from bot.handlers.tracking import Seguimientos, TrackDecision, TrackNo, TrackSto
 from bot.services.airing import Airing
 from bot.services.changedetection import FILTER, ChangeDetectionClient, ChangeDetectionError
 from bot.services.japanpaw import PostInfo
+from bot import tracking
 from bot.tracking.schedule import Schedule
-from tests.test_flows import ADMIN, CLIENT, FakeSite, KuroTest
+from tests.test_flows import ADMIN, CLIENT, FakeSite, KuroTest, said
 
 MADRID = ZoneInfo("Europe/Madrid")
 
@@ -85,9 +88,13 @@ class FakeCD:
         return uuid
 
     async def reschedule(self, uuid, schedule):
+        if self.fail:
+            raise ChangeDetectionError("HTTP 500")
         self.rescheduled.append((uuid, schedule))
 
     async def delete(self, uuid):
+        if self.fail:
+            raise ChangeDetectionError("HTTP 500")
         self.watches.pop(uuid, None)
         self.deleted.append(uuid)
 
@@ -113,11 +120,23 @@ class AiringSite(FakeSite):
     def __init__(self):
         super().__init__()
         self.airing_ids = {11}
+        self.premiere = ""          # día del estreno en la ficha
+        self.down = False           # la web no responde
 
     async def get_post(self, url, post_id, title=""):
+        if self.down:
+            raise RuntimeError("web caída")
         p = await super().get_post(url, post_id, title)
         p.airing = post_id in self.airing_ids
         return p
+
+    async def details(self, ids):
+        if self.down:
+            raise RuntimeError("web caída")
+        out = await super().details(ids)
+        for d in out.values():
+            d.premiere = self.premiere
+        return out
 
 
 class TrackingTest(KuroTest):
@@ -127,6 +146,9 @@ class TrackingTest(KuroTest):
         self.site = AiringSite()
         self.k.site = self.site
         self.k.tracker.cd, self.k.tracker.airing = self.cd, self.airing
+        p = mock.patch.object(tracking, "ANILIST_PAUSE", 0)   # sin esperas entre consultas a AniList
+        p.start()
+        self.addCleanup(p.stop)
         self.automator.library = {"status": "missing", "missing": [1, 2], "have": 0, "available": 2,
                                   "folder": "X", "title": "Post 11 - Japan-Paw! Descarga Calidad"}
 
@@ -368,6 +390,146 @@ class TestMaintenance(TrackingTest):
         self.assertEqual(self.k.db.track_get(1).status, TrackStatus.ACTIVE)   # dos semanas de margen
 
 
+class TestMaintenanceEdges(TrackingTest):
+    async def activate(self, chat=ADMIN):
+        await self.press(Pick, chat, "pick:11")
+        await self.press(TrackYes, chat, "tky:1", message=self.offer_msg(chat))
+        if chat != ADMIN:
+            await self.press(TrackDecision, ADMIN, "tka:1", message=self.track_admin_msg())
+
+    async def test_anilist_finished_ends_after_two_weeks(self):
+        await self.activate()
+        self.airing.status, self.airing.next_at = "FINISHED", None
+        clock = SimpleNamespace(time=lambda: now)
+        now = 1_000_000.0
+        with mock.patch.object(tracking, "time", clock):
+            await self.k.tracker.maintain()
+            now += tracking.FINISHED_GRACE - 60
+            await self.k.tracker.maintain()
+            self.assertEqual(self.k.db.track_get(1).status, TrackStatus.ACTIVE)
+            now += 120
+            await self.k.tracker.maintain()
+        self.assertEqual(self.k.db.track_get(1).status, TrackStatus.ENDED)
+        # el miauestro lo seguía solo: le basta con el aviso de seguidor
+        self.assertTrue(said("track_ended", self.bot.to(ADMIN)[-1].text))
+        self.assertFalse(any(said("track_admin_ended", m.text) for m in self.bot.to(ADMIN)))
+
+    async def test_end_of_a_client_tracking_is_told_to_both(self):
+        await self.activate(CLIENT)
+        self.site.airing_ids, self.airing.status = set(), "FINISHED"
+        await self.k.tracker.maintain()
+        self.assertTrue(said("track_ended", self.bot.to(CLIENT)[-1].text))
+        self.assertTrue(said("track_admin_ended", self.bot.to(ADMIN)[-1].text))
+
+    async def test_site_down_changes_nothing(self):
+        await self.activate()
+        self.site.down = True
+        self.site.airing_ids = set()
+        with self.assertLogs("bot.tracking", "WARNING"):
+            await self.k.tracker.maintain()
+        self.assertEqual(self.k.db.track_get(1).status, TrackStatus.ACTIVE)
+
+    async def test_failed_reschedule_is_retried_next_time(self):
+        await self.activate()
+        old = self.k.db.track_get(1).schedule
+        self.airing.next_at = datetime(2026, 11, 28, 1, 0, tzinfo=MADRID).timestamp()
+        self.cd.fail = True
+        await self.k.tracker.maintain()
+        self.assertEqual(self.k.db.track_get(1).schedule, old)
+        self.cd.fail = False
+        await self.k.tracker.maintain()
+        self.assertEqual(Schedule.from_dict(self.k.db.track_get(1).schedule).weekday, 5)
+
+    async def test_premiere_window_follows_the_site(self):
+        self.airing.next_at = None                            # AniList sin hora de emisión
+        self.site.premiere = "2025-07-04"                     # estreno en viernes (Japón)
+        await self.activate()
+        t = self.k.db.track_get(1)
+        self.assertEqual((t.schedule["source"], t.schedule["weekday"]), ("estreno", 3))
+        self.site.premiere = "2025-07-06"                     # la ficha cambia: domingo
+        await self.k.tracker.maintain()
+        self.assertEqual(self.k.db.track_get(1).schedule["weekday"], 5)
+        self.site.details = self.broken_details               # sin ficha: se queda como estaba
+        await self.k.tracker.maintain()
+        self.assertEqual(self.k.db.track_get(1).schedule["weekday"], 5)
+
+    @staticmethod
+    async def broken_details(ids):
+        raise RuntimeError("web caída")
+
+    async def test_without_any_date_it_checks_all_day(self):
+        self.airing.next_at = None
+        self.site.details = self.broken_details
+        await self.press(Pick, CLIENT, "pick:11")
+        q = await self.press(TrackYes, CLIENT, "tky:1", message=self.offer_msg(CLIENT))
+        self.assertIn("todos los días", q.message.text)
+        self.assertIn("sin horario: cada 6 h", self.track_admin_msg().text)
+
+    async def test_premiere_without_time_is_explained_to_the_admin(self):
+        self.airing.next_at = None
+        self.site.premiere = "2025-07-04"
+        await self.press(Pick, CLIENT, "pick:11")
+        q = await self.press(TrackYes, CLIENT, "tky:1", message=self.offer_msg(CLIENT))
+        self.assertIn("medianoche en Japón", q.message.text)
+        self.assertIn("día del estreno; hora desconocida", self.track_admin_msg().text)
+
+
+class TestAcceptAndStop(TrackingTest):
+    async def test_admin_creation_fails(self):
+        self.cd.fail = True
+        await self.press(Pick, ADMIN, "pick:11")
+        q = await self.press(TrackYes, ADMIN, "tky:1", message=self.offer_msg(ADMIN))
+        self.assertTrue(said("track_failed", q.message.text))
+        self.assertIn("<code>HTTP 500</code>", q.message.text)
+        self.assertEqual(self.k.db.track_get(1).status, TrackStatus.FAILED)
+
+    async def test_admin_unreachable_gives_the_offer_back(self):
+        from telegram.error import TelegramError
+        await self.press(Pick, CLIENT, "pick:11")
+        offer = self.offer_msg(CLIENT)
+        self.bot.fail_next = TelegramError("caído")
+        with self.assertLogs("bot.tracking", "ERROR"):
+            q = await self.press(TrackYes, CLIENT, "tky:1", message=offer)
+        self.assertTrue(said("admin_unreachable", q.message.text))
+        self.assertEqual(self.k.db.track_get(1).status, TrackStatus.OFFERED)
+
+    async def test_failed_delete_is_told_to_the_admin(self):
+        await self.press(Pick, ADMIN, "pick:11")
+        await self.press(TrackYes, ADMIN, "tky:1", message=self.offer_msg(ADMIN))
+        self.cd.fail = True
+        await self.press(TrackStop, ADMIN, "tks:1")
+        self.assertTrue(any(said("track_admin_delete_failed", m.text) for m in self.bot.to(ADMIN)))
+        self.assertEqual(self.k.db.track_get(1).status, TrackStatus.ENDED)
+
+
+class TestLoop(TrackingTest):
+    async def test_retries_the_drive_list_until_it_arrives(self):
+        clock = SimpleNamespace(now=0.0)
+        clock.time = lambda: clock.now
+        sync_at = []
+        sync = self.automator.sync_watches
+
+        async def timed_sync(watches):
+            sync_at.append(clock.now)
+            self.automator.sync_ok = clock.now >= 3600          # Anime-Automator vuelve a la hora
+            return await sync(watches)
+        self.automator.sync_watches = timed_sync
+
+        class Stop(Exception):
+            pass
+
+        async def sleep(seconds):
+            if clock.now >= 43_000:
+                raise Stop
+            clock.now += seconds
+        fixed = SimpleNamespace(uniform=lambda a, b: a)
+        with mock.patch.multiple(tracking, time=clock, random=fixed, asyncio=SimpleNamespace(sleep=sleep)):
+            with self.assertRaises(Stop):
+                await self.k.tracker.loop()
+        # al arrancar, el repaso a los 5 min, reintentos cada 10 min hasta que llega y el repaso de 12 h después
+        self.assertEqual(sync_at, [0, 300, 900, 1500, 2100, 2700, 3300, 3900, 42_900])
+
+
 class TestDrive(TrackingTest):
     URL = "https://paste.japan-paw.net/?v=11"
 
@@ -387,6 +549,14 @@ class TestDrive(TrackingTest):
         self.assertEqual(self.k.db.track_get(1).watch_title, w["title"])
         await self.k.tracker.stop(self.k.db.track_get(1))
         self.assertEqual(self.automator.synced[-1], [])
+
+    async def test_old_trackings_get_their_title_once(self):
+        await self.activate()
+        self.k.db.track_update(1, watch_title="")            # de antes de guardar el título
+        self.automator.library = {**self.automator.library, "title": ""}   # y la biblioteca no lo sabe
+        await self.k.tracker.sync_automator()
+        self.assertEqual(self.automator.synced[-1][0]["title"], "Anime A - Japan-Paw! Descarga Calidad")
+        self.assertEqual(self.k.db.track_get(1).watch_title, "Anime A - Japan-Paw! Descarga Calidad")
 
     async def test_drive_only_needs_no_changedetection(self):
         self.k.tracker.sources = frozenset({"drive"})
@@ -475,12 +645,13 @@ if __name__ == "__main__":
 
 class TestAniListExact(unittest.IsolatedAsyncioTestCase):
     def client(self, media):
+        import httpx
         from bot.services.airing import AiringClient
-
-        class C(AiringClient):
-            async def _query(self, query, variables, timeout=10):
-                return {"Page": {"media": media}}
-        return C()
+        from tests.test_services import fake_http
+        patch = fake_http(lambda request: httpx.Response(200, json={"data": {"Page": {"media": media}}}))
+        patch.start()
+        self.addCleanup(patch.stop)
+        return AiringClient()
 
     @staticmethod
     def media(mid, romaji, status, synonyms=()):

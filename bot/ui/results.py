@@ -66,24 +66,31 @@ def extra_of(base: str, title: str, movie: bool) -> bool:
     subtítulo aparte: «Kimetsu no Yaiba: Mugen Ressha-hen»). Así ni «Monster
     Musume OVA» ni «Gekijouban Monster Musume» son extras de «Monster».
     """
-    bw, tw = _words(base), _words(title)
-    if not bw:
+    bw = _words(base)
+    tw = _without_leading(_words(title))
+    if not bw or tw[:len(bw)] != bw:
         return False
-    i = 0
-    while i < len(tw) and tw[i] in _LEADING:
-        i += 1
-    if tw[i:i + len(bw)] != bw:
-        return False
-    rest = tw[i + len(bw):]
+    rest = tw[len(bw):]
     if rest and EXTRA_RE.match(rest[0]):
         return True
-    if not movie:
-        return False
-    # una película puede llevar solo el subtítulo, pero separado: «Kimetsu no Yaiba: Mugen Ressha-hen»
-    head = [w for w in _words(re.split(r":| - | – ", title, maxsplit=1)[0])]
-    while head and head[0] in _LEADING:
-        head = head[1:]
-    return not rest or rest == [w for w in rest if w.isdigit()] or head == bw   # «… 2»: la película 2
+    return movie and _movie_of(bw, title, rest)
+
+
+def _without_leading(words: list[str]) -> list[str]:
+    """Sin lo que puede ir delante del nombre («Gekijouban», «The»…)."""
+    i = 0
+    while i < len(words) and words[i] in _LEADING:
+        i += 1
+    return words[i:]
+
+
+def _movie_of(bw: list[str], title: str, rest: list[str]) -> bool:
+    """
+    Una película de la serie puede llevar solo el número («… 2»: la película 2)
+    o un subtítulo, pero separado: «Kimetsu no Yaiba: Mugen Ressha-hen».
+    """
+    head = _without_leading(_words(re.split(r":| - | – ", title, maxsplit=1)[0]))
+    return not rest or all(w.isdigit() for w in rest) or head == bw
 
 
 def extra_tag(title: str, movie: bool) -> str:
@@ -137,39 +144,10 @@ class ResultsBuilder:
         self.k = kuro
 
     async def build(self, session: ChatSession, results) -> ResultSet:
-        titles = [clean_title(r.title) for r in results]
-        kinds, seasons = await asyncio.gather(
-            self.k.site.post_kinds([r.post_id for r in results]), self.k.automator.seasons(titles))
-        if len(seasons) != len(results):
-            seasons = [None] * len(results)
-
-        entries = []
-        for r, t, sinfo in zip(results, titles, seasons):
-            session.results[r.post_id] = (r.title, r.url)
-            entries.append(_Entry(r, t, "pelicula" in kinds.get(r.post_id, set()), sinfo))
-
-        # temporadas del mismo anime
-        by_key: dict[str, list[_Entry]] = {}
-        for en in entries:
-            if not en.looks_extra and en.key:
-                by_key.setdefault(en.key, []).append(en)
-        # sus OVAs, especiales y películas (cada una con la serie de nombre más largo que case)
-        extras: dict[str, list[_Entry]] = {}
-        for en in entries:
-            if not en.looks_extra or (en.key in by_key):
-                continue
-            bases = sorted(((k, v[0].season.get("base") or v[0].title) for k, v in by_key.items()),
-                           key=lambda kb: -len(kb[1]))
-            # AniList manda («Suzumiya Haruhi no Shoushitsu» es de «… no Yuuutsu»); si no, el título
-            match = en.series_key if en.series_key in by_key else next(
-                (k for k, base in bases if extra_of(base, en.title, en.is_movie)), None)
-            if match:
-                en.extra = extra_tag(en.title, en.is_movie)
-                extras.setdefault(match, []).append(en)
-        # un pack: al menos dos temporadas distintas, o una temporada y algún extra
-        multi = {k: v + extras.get(k, []) for k, v in by_key.items()
-                 if len({en.season["season"] for en in v}) >= 2 or extras.get(k)}
-        in_pack = {id(en): k for k, v in multi.items() for en in v}
+        entries = await self._entries(session, results)
+        by_key = _seasons(entries)
+        packs = _packs(by_key, _extras(entries, by_key))
+        in_pack = {id(en): k for k, v in packs.items() for en in v}
 
         out, done = ResultSet(), set()
         for en in entries:
@@ -177,19 +155,32 @@ class ResultsBuilder:
             if key is None:
                 prefix = "🎬 " if en.movie else ""
                 out.choices.append(Choice(en.result.post_id, prefix + en.result.title, None, en.movie))
-                continue
-            if key in done:
-                continue
-            done.add(key)
-            gid = session.next_id("group")
-            # las temporadas en orden y, detrás, los extras (las películas por número)
-            members = sorted(multi[key], key=lambda x: (bool(x.extra), season_sort(x.season["season"])
-                                                         if not x.extra else _extra_number(x.extra)))
-            out.choices += [Choice(m.result.post_id, f"{season_tag(m.tag)} · {m.result.title}", gid, m.movie)
-                            for m in members]
-            group = self._group(members)
-            session.groups[gid] = out.groups[gid] = group
+            elif key not in done:
+                done.add(key)
+                self._add_pack(session, out, packs[key])
         return out
+
+    async def _entries(self, session: ChatSession, results) -> list[_Entry]:
+        """Cada resultado con su tipo (película o no) y lo que sabe Anime-Automator de su temporada."""
+        titles = [clean_title(r.title) for r in results]
+        kinds, seasons = await asyncio.gather(
+            self.k.site.post_kinds([r.post_id for r in results]), self.k.automator.seasons(titles))
+        if len(seasons) != len(results):
+            seasons = [None] * len(results)
+        entries = []
+        for r, t, sinfo in zip(results, titles, seasons):
+            session.results[r.post_id] = (r.title, r.url)
+            entries.append(_Entry(r, t, "pelicula" in kinds.get(r.post_id, set()), sinfo))
+        return entries
+
+    def _add_pack(self, session: ChatSession, out: ResultSet, pack: list[_Entry]):
+        gid = session.next_id("group")
+        # las temporadas en orden y, detrás, los extras (las películas por número)
+        members = sorted(pack, key=lambda x: (bool(x.extra), season_sort(x.season["season"])
+                                              if not x.extra else _extra_number(x.extra)))
+        out.choices += [Choice(m.result.post_id, f"{season_tag(m.tag)} · {m.result.title}", gid, m.movie)
+                        for m in members]
+        session.groups[gid] = out.groups[gid] = self._group(members)
 
     @staticmethod
     def _group(members: list[_Entry]) -> SeasonGroup:
@@ -206,3 +197,35 @@ class ResultsBuilder:
             span += f" + {n_extra} extra" + ("s" if n_extra > 1 else "")
         label = short(f"📦 Todo: {base} ({span}) · 1 encargo")
         return SeasonGroup(base, items, label)
+
+
+def _seasons(entries: list[_Entry]) -> dict[str, list[_Entry]]:
+    """Las temporadas de cada anime (por la clave de Anime-Automator)."""
+    by_key: dict[str, list[_Entry]] = {}
+    for en in entries:
+        if not en.looks_extra and en.key:
+            by_key.setdefault(en.key, []).append(en)
+    return by_key
+
+
+def _extras(entries: list[_Entry], by_key: dict[str, list[_Entry]]) -> dict[str, list[_Entry]]:
+    """Las OVAs, especiales y películas de cada anime (cada una con la serie de nombre más largo que case)."""
+    bases = sorted(((k, v[0].season.get("base") or v[0].title) for k, v in by_key.items()),
+                   key=lambda kb: -len(kb[1]))
+    extras: dict[str, list[_Entry]] = {}
+    for en in entries:
+        if not en.looks_extra or en.key in by_key:
+            continue
+        # AniList manda («Suzumiya Haruhi no Shoushitsu» es de «… no Yuuutsu»); si no, el título
+        match = en.series_key if en.series_key in by_key else next(
+            (k for k, base in bases if extra_of(base, en.title, en.is_movie)), None)
+        if match:
+            en.extra = extra_tag(en.title, en.is_movie)
+            extras.setdefault(match, []).append(en)
+    return extras
+
+
+def _packs(by_key: dict[str, list[_Entry]], extras: dict[str, list[_Entry]]) -> dict[str, list[_Entry]]:
+    """Un pack: al menos dos temporadas distintas, o una temporada y algún extra."""
+    return {k: v + extras.get(k, []) for k, v in by_key.items()
+            if len({en.season["season"] for en in v}) >= 2 or extras.get(k)}

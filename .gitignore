@@ -25,6 +25,10 @@ __pycache__/
 venv/
 .pytest_cache/
 .coverage
+coverage/
+# informes de crapper, dryer y mutator
+.metrics/
+target/
 htmlcov/
 
 # Editores y sistema

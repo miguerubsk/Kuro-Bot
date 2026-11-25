@@ -103,20 +103,28 @@ class Persona:
         if self._trust is None:
             return ""
         values = {"voc": voc, "Voc": voc[:1].upper() + voc[1:], "site": self.site()}
-        if to == self.boss:
-            if self._rng.random() >= L.BATTLE_CHANCE:
-                return ""
-            titles = self._titles() if self._titles else []
-            pool = [b for b in L.BATTLES if titles or "{title}" not in b]
-            values["title"] = html.escape(self._rng.choice(titles)) if titles else ""
-            text, icon = self._fresh("__battle__", pool), "🍖"
-        else:
-            level = min(self._trust(to), len(L.LORE))
-            if level <= 0 or self._rng.random() >= L.LORE_CHANCE[level - 1]:
-                return ""
-            # cada cliente tiene su memoria: no se le repite lo que le contó hace poco
-            text, icon = self._fresh(f"__lore__:{to}", [x for lv in L.LORE[:level] for x in lv]), "🐾"
+        picked = self._battle(values) if to == self.boss else self._lore(to)
+        if picked is None:
+            return ""
+        text, icon = picked
         return f"\n\n{icon} <i>{_CONTRACTIONS.sub(_contract, text.format(**values))}</i>"
+
+    def _battle(self, values: dict) -> tuple[str, str] | None:
+        """Una batallita para el miauestro (a veces con un anime de verdad de los bajados), o nada."""
+        if self._rng.random() >= L.BATTLE_CHANCE:
+            return None
+        titles = self._titles() if self._titles else []
+        pool = [b for b in L.BATTLES if titles or "{title}" not in b]
+        values["title"] = html.escape(self._rng.choice(titles)) if titles else ""
+        return self._fresh("__battle__", pool), "🍖"
+
+    def _lore(self, to: int) -> tuple[str, str] | None:
+        """Un trozo de su vida, según la confianza con ese cliente, o nada."""
+        level = min(self._trust(to), len(L.LORE))
+        if level <= 0 or self._rng.random() >= L.LORE_CHANCE[level - 1]:
+            return None
+        # cada cliente tiene su memoria: no se le repite lo que le contó hace poco
+        return self._fresh(f"__lore__:{to}", [x for lv in L.LORE[:level] for x in lv]), "🐾"
 
     # ---------------------------------------------------------------- API
     def say(self, key: str, to: int | None = None, **kw) -> str:

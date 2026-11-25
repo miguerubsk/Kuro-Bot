@@ -6,6 +6,7 @@ son falsos, así que no se descarga ni se envía nada de verdad.
 """
 
 import asyncio
+import re
 import tempfile
 import unittest
 from types import SimpleNamespace
@@ -211,6 +212,18 @@ class FakeSite:
         pass
 
 
+def said(key: str, text: str) -> bool:
+    """¿Es `text` una de las frases de la clave `key`? (los huecos {…} valen cualquier cosa)"""
+    from bot.persona.lines import LINES, NIGHT_LINES
+    for template in LINES[key] + NIGHT_LINES.get(key, []):
+        pattern = ".*?".join(re.escape(part) for part in re.split(r"\{[^}]*\}", template))
+        # «de el puerto» -> «del puerto»: lo que va tras «de»/«a» puede venir contraído
+        pattern = re.sub(r"\b(de|a)\\ ", r"\1l?\\ ?", pattern)
+        if re.match(pattern, text, re.S):
+            return True
+    return False
+
+
 def settings(data_dir, **kw) -> Settings:
     base = dict(token="x", admin_chat_id=ADMIN, allowed_chat_ids=frozenset({CLIENT}), access_keyword="",
                 weekly_limit=3, automator_url="http://a", sockpuppet_url="ws://b", japanpaw_base="https://c",
@@ -293,7 +306,9 @@ class TestSearch(KuroTest):
         self.site.results = [SearchResult(21, "One Piece", "https://japanpaw.com/op"),
                              SearchResult(22, "One Piece Film: Red", "https://japanpaw.com/opr")]
         await self.type(FreeText, CLIENT, "one piece")
-        self.assertIn("one piece", self.bot.to(CLIENT)[-1].text.lower())
+        from bot.persona.lines import LINES
+        starts = {line.split("{")[0][:12] for line in LINES["blocked_anime"]}
+        self.assertTrue(any(self.bot.to(CLIENT)[-1].text.startswith(s) for s in starts))
         self.assertNotIn("pick:21", self.buttons(self.bot.to(CLIENT)[-1]))
         self.assertFalse(any("pick:" in d for m in self.bot.to(CLIENT) for d in self.buttons(m)))
         # aunque se busque por otro nombre, lo que salga de Naruto no se puede elegir

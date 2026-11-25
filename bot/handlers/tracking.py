@@ -110,21 +110,28 @@ class Seguimientos(ChatCommand):
             return say("track_none"), None
         lines, rows = [say("track_list_head", count=len(items))], []
         for t in items:
-            state = "" if t.status == TrackStatus.ACTIVE else " — ⏳ pendiente del miauestro" if (
-                t.status == TrackStatus.PENDING) else " — ⚠️ falló al crearse"
-            shared = " — 🤝 compartida, no gasta cupo" if t.shared and not admin else ""
-            if admin:
-                # al admin le salen las de todos: cada línea y cada botón dicen de quién es
-                owner = "tú" if kuro.is_admin(t.chat_id) else short_name(t.user_name)
-                lines.append(f"📡 <b>{e(t.title)}</b> · 👤 {e(owner)}\n"
-                             f"    {e(Schedule.from_dict(t.schedule).describe())}{state}")
-                rows.append([button(f"🗑 {owner} · {plain(t.title)}", f"{Tracker.STOP}:{t.id}", 48)])
-                continue
-            lines.append(f"📡 <b>{e(t.title)}</b>\n    {e(Schedule.from_dict(t.schedule).describe())}{state}{shared}")
-            rows.append([button(f"🗑 {plain(t.title)}", f"{Tracker.STOP}:{t.id}", 40)])
+            line, row = Seguimientos._entry(kuro, t, admin)
+            lines.append(line)
+            rows.append(row)
         if not admin:
             lines.append(say("track_list_limit", count=kuro.db.track_counted(chat_id), limit=kuro.tracker.limit))
         return "\n".join(lines), InlineKeyboardMarkup(rows)
+
+    STATE = {TrackStatus.ACTIVE: "", TrackStatus.PENDING: " — ⏳ pendiente del miauestro"}
+
+    @staticmethod
+    def _entry(kuro, t, admin: bool) -> tuple[str, list]:
+        """La línea de un seguimiento y su botón para dejarlo."""
+        state = Seguimientos.STATE.get(t.status, " — ⚠️ falló al crearse")
+        when = e(Schedule.from_dict(t.schedule).describe())
+        if admin:
+            # al admin le salen las de todos: cada línea y cada botón dicen de quién es
+            owner = "tú" if kuro.is_admin(t.chat_id) else short_name(t.user_name)
+            return (f"📡 <b>{e(t.title)}</b> · 👤 {e(owner)}\n    {when}{state}",
+                    [button(f"🗑 {owner} · {plain(t.title)}", f"{Tracker.STOP}:{t.id}", 48)])
+        shared = " — 🤝 compartida, no gasta cupo" if t.shared else ""
+        return (f"📡 <b>{e(t.title)}</b>\n    {when}{state}{shared}",
+                [button(f"🗑 {plain(t.title)}", f"{Tracker.STOP}:{t.id}", 40)])
 
     async def execute(self, ctx):
         text, kb = self.render(self.k, ctx.chat_id)

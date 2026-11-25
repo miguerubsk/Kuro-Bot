@@ -97,21 +97,24 @@ class Lonely:
         now = time.time()
         last = self.db.kv_get(K_LAST)
         level = self.db.kv_get(K_LEVEL, 0) or 0
-        if last is None or now - last >= TOUCH_GRANULARITY:
-            if last is not None:
-                gaps = (self.db.kv_get(K_GAPS, []) or [])[-(HISTORY - 1):]
-                # los ratos de abandono también cuentan, pero sin pasarse
-                gaps.append(min(now - last, MAX_WAIT))
-                self.db.kv_set(K_GAPS, gaps)
-            self.db.kv_set(K_LAST, now)
-        elif last is not None:
-            self.db.kv_set(K_LAST, now)
+        if last is not None and now - last >= TOUCH_GRANULARITY:
+            self._remember_gap(now - last)
+        self.db.kv_set(K_LAST, now)
         self.db.kv_set(K_NEXT, self._plan_next(now, 1))
         if level:
-            self.db.kv_set(K_LEVEL, 0)
-            away = now - (last or now)
-            key = next(k for threshold, k in BACK_KEYS if level >= threshold)
-            await self.send(self.admin, self.persona.say(key, self.admin, days=_days(away)))
+            await self._welcome_back(level, now - (last or now))
+
+    def _remember_gap(self, gap: float):
+        gaps = (self.db.kv_get(K_GAPS, []) or [])[-(HISTORY - 1):]
+        # los ratos de abandono también cuentan, pero sin pasarse
+        gaps.append(min(gap, MAX_WAIT))
+        self.db.kv_set(K_GAPS, gaps)
+
+    async def _welcome_back(self, level: int, away: float):
+        """Vuelve tras haberle echado de menos: le recibe según lo dramático que se puso."""
+        self.db.kv_set(K_LEVEL, 0)
+        key = next(k for threshold, k in BACK_KEYS if level >= threshold)
+        await self.send(self.admin, self.persona.say(key, self.admin, days=_days(away)))
 
     async def loop(self):
         if self.db.kv_get(K_NEXT) is None:

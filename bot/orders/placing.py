@@ -146,6 +146,21 @@ class Placing(ABC):
             except Exception:
                 log.exception("Fallo ofreciendo el seguimiento de %s", post.title)
 
+    async def _read(self, url: str, post_id: int, title: str) -> PostInfo | None:
+        """
+        Lee el post (None si falla). Si tiene enlace, se mira si está en
+        emisión y, si lo está, se apunta para ofrecer seguirlo.
+        """
+        try:
+            post = await self.k.site.get_post(url, post_id, title)
+        except Exception:
+            log.exception("Fallo leyendo el post %s (%s)", post_id, url)
+            return None
+        if post.paste_url:
+            post = await self.k.tracker.confirm_airing(post)
+            self.saw(post)
+        return post
+
     async def stop(self, key: str, **kw):
         await self.out.edit(self.say(key, **kw))
         raise Stop
@@ -191,42 +206,40 @@ class SinglePlacing(Placing):
         return self.item.post.title
 
     async def collect(self):
-        if self.cached:
-            title, url = self.cached
-        else:
-            found = await self.k.site.post_by_id(self.post_id)
-            if not found:
-                await self.stop("expired")
-            title, url = found.title, found.url
-
+        title, url = await self._where()
         prev = self.sub.already_active(self.post_id)
         if prev:
             await self.stop("already_pending", title=prev.title)
-
         await self.out.edit(self.say("reading_post", title=title))
-        try:
-            post = await self.k.site.get_post(url, self.post_id, title)
-        except Exception:
-            log.exception("Fallo leyendo el post %s (%s)", self.post_id, url)
+        post = await self._read(url, self.post_id, title)
+        if post is None:
             await self.stop("post_error")
         if not post.paste_url:
             await self.stop("no_link", title=post.title)
-        post = await self.k.tracker.confirm_airing(post)
-        self.saw(post)
-
-        check = None
-        if self.sub.checks_library:
-            # antes de gastar cupo o molestar al admin: ¿ya está en la biblioteca?
-            await self.out.edit(self.say("checking_library", title=post.title))
-            check = await self.sub.check(post)
-            if check.state == Assessment.COMPLETE:
-                movie = post.movie or check.lib.get("kind") == "movie"
-                await self.stop("library_movie" if movie else "library_complete", title=post.title,
-                                have=check.lib.get("have", "?"))
-            if check.state == Assessment.BUSY:
-                await self.stop("library_busy", title=post.title)
+        check = await self._check_library(post) if self.sub.checks_library else None
         self.item = Item(post, None, check)
         return [self.item]
+
+    async def _where(self) -> tuple[str, str]:
+        """(título, url) del post elegido: de la búsqueda o, si ya no está, de la web."""
+        if self.cached:
+            return self.cached
+        found = await self.k.site.post_by_id(self.post_id)
+        if not found:
+            await self.stop("expired")
+        return found.title, found.url
+
+    async def _check_library(self, post) -> Assessment:
+        """Antes de gastar cupo o molestar al admin: ¿ya está en la biblioteca? (si lo está, se para)"""
+        await self.out.edit(self.say("checking_library", title=post.title))
+        check = await self.sub.check(post)
+        if check.state == Assessment.COMPLETE:
+            movie = post.movie or check.lib.get("kind") == "movie"
+            await self.stop("library_movie" if movie else "library_complete", title=post.title,
+                            have=check.lib.get("have", "?"))
+        if check.state == Assessment.BUSY:
+            await self.stop("library_busy", title=post.title)
+        return check
 
     def store(self, items):
         rid = self._add(items[0])
@@ -256,26 +269,26 @@ class BundlePlacing(Placing):
         await self.out.edit(self.say("bundle_reading", title=self.group.base))
         items = []
         for post_id, title, url, season in self.group.items:
-            if self.sub.already_active(post_id):
-                self.skipped.append(season_tag(season))
-                continue
-            try:
-                post = await self.k.site.get_post(url, post_id, title)
-            except Exception:
-                log.exception("Fallo leyendo el post %s (%s)", post_id, url)
-                continue
-            if not post.paste_url:
-                continue
-            post = await self.k.tracker.confirm_airing(post)
-            self.saw(post)
-            check = await self.sub.check(post)
-            if check is not None and not check.available:
-                self.skipped.append(season_tag(season))
-                continue
-            items.append(Item(post, season, check))
+            item = await self._item(post_id, title, url, season)
+            if item:
+                items.append(item)
         if not items:
             await self.stop("bundle_all_have", title=self.group.base)
         return items
+
+    async def _item(self, post_id: int, title: str, url: str, season: str) -> Item | None:
+        """Una temporada del lote (None si no se puede o no hace falta pedirla)."""
+        if self.sub.already_active(post_id):
+            self.skipped.append(season_tag(season))
+            return None
+        post = await self._read(url, post_id, title)
+        if post is None or not post.paste_url:
+            return None
+        check = await self.sub.check(post)
+        if check is not None and not check.available:
+            self.skipped.append(season_tag(season))
+            return None
+        return Item(post, season, check)
 
     def store(self, items):
         bundle_id = self.k.db.new_bundle_id()

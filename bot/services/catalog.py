@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 
 import httpx
 
-from .aliases import ANILIST_URL
+from . import anilist
 from .japanpaw import Details
 
 log = logging.getLogger(__name__)
@@ -59,6 +59,27 @@ def clean_description(text: str) -> str:
     t = html.unescape(re.sub(r"<[^>]+>", "", t))
     t = re.sub(r"\s*[\[(](?:source|written by|note)[^\])]*[\])]\s*$", "", t.strip(), flags=re.I)
     return re.sub(r"\n{2,}", "\n", t).strip()
+
+
+def _dig(m: dict, *keys, default=None):
+    """m[k1][k2]…, o default si falta algo por el camino (AniList pone null donde no hay dato)."""
+    for k in keys:
+        m = (m or {}).get(k)
+    return default if m is None else m
+
+
+def _season(m: dict) -> str:
+    """«Otoño 2019» (o solo «Otoño» si no trae el año)."""
+    season = SEASON_TEXT.get(m.get("season") or "", "")
+    return f"{season} {m['seasonYear']}" if season and m.get("seasonYear") else season
+
+
+def _neighbours(m: dict) -> list[tuple[str, int, str]]:
+    """(relación, id, formato) de los animes relacionados por RELATIONS (sin los vídeos musicales)."""
+    return [(e["relationType"], int(e["node"]["id"]), e["node"].get("format") or "")
+            for e in _dig(m, "relations", "edges", default=[])
+            if e.get("relationType") in RELATIONS
+            and _dig(e, "node", "type") == "ANIME" and _dig(e, "node", "format") != "MUSIC"]
 
 
 @dataclass
@@ -106,6 +127,27 @@ class Option:
         cands = sorted((f not in MAIN_FORMATS, i) for r, i, f in self.neighbours if r == rel and i not in seen)
         return cands[0][1] if cands else None
 
+    def back(self, seen: set) -> int | None:
+        """
+        Por dónde ir hacia atrás: la precuela; si no la hay y esto es una OVA o
+        película, aquello de lo que cuelga (su serie, la OVA de la que sale).
+        """
+        prev = self.step("PREQUEL", seen)
+        if prev is None and self.format not in MAIN_FORMATS:
+            prev = self.step("PARENT", seen)
+        return prev
+
+    def ahead(self, seen: set) -> int | None:
+        return self.step("SEQUEL", seen)
+
+    def aside(self, seen: set):
+        """
+        Las OVAs, especiales y películas que cuelgan de esta (secuela o historia
+        paralela) y aún no se han visto. Se mira `seen` al ir sacándolas.
+        """
+        return (i for r, i, f in self.neighbours
+                if r in ("SEQUEL", "SIDE_STORY") and f in EXTRA_FORMATS and i not in seen)
+
     def label(self) -> str:
         """«Kono Oto Tomare! 2 · 2019 · TV · 13 caps.» (o «en emisión»)."""
         parts = [self.title]
@@ -131,36 +173,18 @@ class Option:
 
     @classmethod
     def from_media(cls, m: dict) -> "Option":
-        t = m.get("title") or {}
-        season = SEASON_TEXT.get(m.get("season") or "", "")
-        if season and m.get("seasonYear"):
-            season += f" {m['seasonYear']}"
-        neighbours = [(e["relationType"], int(e["node"]["id"]), e["node"].get("format") or "")
-                      for e in ((m.get("relations") or {}).get("edges") or [])
-                      if e.get("relationType") in RELATIONS
-                      and (e.get("node") or {}).get("type") == "ANIME"
-                      and (e.get("node") or {}).get("format") != "MUSIC"]
-        return cls(int(m["id"]), t.get("romaji") or t.get("english") or "?", t.get("english") or "",
-                   m.get("format") or "", m.get("episodes"), (m.get("startDate") or {}).get("year"),
-                   m.get("status") or "", (m.get("coverImage") or {}).get("large") or "",
-                   clean_description(m.get("description") or ""), list(m.get("genres") or []), season,
-                   t.get("native") or "", neighbours)
+        english = _dig(m, "title", "english", default="")
+        return cls(int(m["id"]), _dig(m, "title", "romaji") or english or "?", english,
+                   _dig(m, "format", default=""), m.get("episodes"), _dig(m, "startDate", "year"),
+                   _dig(m, "status", default=""), _dig(m, "coverImage", "large", default=""),
+                   clean_description(m.get("description")), list(_dig(m, "genres", default=[])), _season(m),
+                   _dig(m, "title", "native", default=""), _neighbours(m))
 
 
 class AniListCatalog:
     def __init__(self, tmdb_key: str = ""):
         self.spanish = SpanishSynopsis(tmdb_key) if tmdb_key else None
         self._cache: dict[int, Option] = {}
-
-    async def _query(self, query: str, variables: dict, timeout: float = 10) -> dict | None:
-        try:
-            async with httpx.AsyncClient(timeout=timeout) as c:
-                r = await c.post(ANILIST_URL, json={"query": query, "variables": variables})
-                r.raise_for_status()
-                return r.json().get("data") or {}
-        except Exception as ex:
-            log.warning("AniList no ha respondido (%s): %s", variables, ex)
-            return None
 
     def _keep(self, opt: Option) -> Option:
         if len(self._cache) > 500:
@@ -170,17 +194,16 @@ class AniListCatalog:
 
     async def options(self, query: str, limit: int = 6) -> list[Option] | None:
         """Animes (series, OVAs, especiales y películas) que encajan con la búsqueda; None si AniList no responde."""
-        data = await self._query(SEARCH, {"s": query}, timeout=8)
+        data = await anilist.query(SEARCH, {"s": query}, timeout=8)
         if data is None:
             return None
-        media = ((data.get("Page") or {}).get("media")) or []
-        return [self._keep(Option.from_media(m)) for m in media
+        return [self._keep(Option.from_media(m)) for m in anilist.media(data)
                 if m.get("format") in SERIES_FORMATS and m.get("status") != "NOT_YET_RELEASED"][:limit]
 
     async def option(self, anilist_id: int) -> Option | None:
         if anilist_id in self._cache:
             return self._cache[anilist_id]
-        data = await self._query(BY_ID, {"id": anilist_id}, timeout=8)
+        data = await anilist.query(BY_ID, {"id": anilist_id}, timeout=8)
         m = (data or {}).get("Media")
         return self._keep(Option.from_media(m)) if m else None
 
@@ -206,26 +229,29 @@ class AniListCatalog:
         start = await self.option(anilist_id)
         if start is None:
             return []
-        first, seen = start, {start.anilist_id}
-        for _ in range(MAX_HOPS):
-            prev = first.step("PREQUEL", seen)
-            if prev is None and first.format not in MAIN_FORMATS:
-                # una OVA o película que cuelga de otra cosa (su serie, la OVA de la que sale)
-                prev = first.step("PARENT", seen)
-            opt = await self.option(prev) if prev else None
-            if opt is None:
-                break
-            seen.add(opt.anilist_id)
-            first = opt
-        walk, seen = [first], {first.anilist_id}
-        for _ in range(MAX_HOPS):
-            nxt = walk[-1].step("SEQUEL", seen)
-            opt = await self.option(nxt) if nxt else None
-            if opt is None:
-                break
-            seen.add(opt.anilist_id)
-            walk.append(opt)
+        back, _ = await self._chain(start, Option.back)
+        walk, seen = await self._chain(back[-1], Option.ahead)
+        out = await self._assemble(walk, seen)
+        # lo que aún no se ha estrenado no se puede pedir
+        return [o for o in out if o.status != "NOT_YET_RELEASED"]
 
+    async def _chain(self, start: Option, nxt) -> tuple[list[Option], set]:
+        """start y lo que se alcanza desde ahí con nxt(opción, vistos), como mucho MAX_HOPS pasos; y los vistos."""
+        chain, seen = [start], {start.anilist_id}
+        for _ in range(MAX_HOPS):
+            i = nxt(chain[-1], seen)
+            opt = await self.option(i) if i else None
+            if opt is None:
+                break
+            seen.add(opt.anilist_id)
+            chain.append(opt)
+        return chain, seen
+
+    async def _assemble(self, walk: list[Option], seen: set) -> list[Option]:
+        """
+        Las temporadas y extras del camino (hasta MAX_SEASONS y MAX_EXTRAS) y,
+        detrás de cada paso, los extras que cuelgan aparte de él.
+        """
         out, mains, extras = [], 0, 0
         for o in walk:
             if o.format in MAIN_FORMATS and mains < MAX_SEASONS:
@@ -234,24 +260,27 @@ class AniListCatalog:
             elif o.format in EXTRA_FORMATS and extras < MAX_EXTRAS:
                 out.append(o)
                 extras += 1
-            # lo que cuelga aparte de este paso (otra secuela que no es la del camino, historias
-            # paralelas) y, de eso, sus secuelas (la película 2 de la película 1)
-            pending = [o]
-            while pending and extras < MAX_EXTRAS:
-                cur = pending.pop(0)
-                for rel, i, f in cur.neighbours:
-                    if rel not in ("SEQUEL", "SIDE_STORY") or f not in EXTRA_FORMATS or i in seen:
-                        continue
-                    if extras >= MAX_EXTRAS:
-                        break
-                    seen.add(i)
-                    side = await self.option(i)
-                    if side is not None:
-                        out.append(side)
-                        extras += 1
-                        pending.append(side)
-        # lo que aún no se ha estrenado no se puede pedir
-        return [o for o in out if o.status != "NOT_YET_RELEASED"]
+            side = await self._hanging(o, seen, MAX_EXTRAS - extras)
+            out += side
+            extras += len(side)
+        return out
+
+    async def _hanging(self, o: Option, seen: set, room: int) -> list[Option]:
+        """
+        Lo que cuelga aparte de o (otra secuela que no es la del camino, historias
+        paralelas) y, de eso, sus secuelas (la película 2 de la película 1): como mucho `room`.
+        """
+        found, pending = [], [o]
+        while pending and len(found) < room:
+            for i in pending.pop(0).aside(seen):
+                if len(found) >= room:
+                    break
+                seen.add(i)
+                side = await self.option(i)
+                if side is not None:
+                    found.append(side)
+                    pending.append(side)
+        return found
 
 
 class SpanishSynopsis:
@@ -269,23 +298,32 @@ class SpanishSynopsis:
         return {"api_key": self.key}, {}
 
     async def find(self, opt: Option) -> str:
+        """La sinopsis en español, o "" (si TMDB falla, se volverá a probar la próxima vez)."""
         if opt.anilist_id in self._cache:
             return self._cache[opt.anilist_id]
-        params, headers = self._auth()
-        found = ""
         try:
-            async with httpx.AsyncClient(timeout=6) as c:
-                for name in dict.fromkeys(n for n in (opt.english, opt.title, opt.native) if n):
-                    r = await c.get(self.URL, params={**params, "query": name, "language": "es-ES"},
-                                    headers=headers)
-                    r.raise_for_status()
-                    hits = [h for h in r.json().get("results") or []
-                            if h.get("original_language") == "ja" and (h.get("overview") or "").strip()]
-                    if hits:
-                        found = hits[0]["overview"].strip()
-                        break
+            found = await self._search(opt)
         except (httpx.HTTPError, ValueError) as ex:
             log.info("TMDB no da la sinopsis de %s: %s", opt.title, ex)
             return ""
         self._cache[opt.anilist_id] = found
         return found
+
+    async def _search(self, opt: Option) -> str:
+        """Busca por el nombre inglés, luego el romaji y luego el japonés, hasta dar con una."""
+        params, headers = self._auth()
+        async with httpx.AsyncClient(timeout=6) as c:
+            for name in dict.fromkeys(n for n in (opt.english, opt.title, opt.native) if n):
+                r = await c.get(self.URL, params={**params, "query": name, "language": "es-ES"}, headers=headers)
+                r.raise_for_status()
+                overview = _japanese_overview(r.json())
+                if overview:
+                    return overview
+        return ""
+
+
+def _japanese_overview(data: dict) -> str:
+    """La sinopsis del primer anime japonés de una búsqueda de TMDB que la tenga, o ""."""
+    hits = [h for h in data.get("results") or []
+            if h.get("original_language") == "ja" and (h.get("overview") or "").strip()]
+    return hits[0]["overview"].strip() if hits else ""

@@ -12,11 +12,11 @@ import re
 import time
 import unicodedata
 
-import httpx
+from . import anilist
+from .anilist import names
 
 log = logging.getLogger(__name__)
 
-ANILIST_URL = "https://graphql.anilist.co"
 QUERY = """
 query ($s: String) {
   Page(perPage: 4) {
@@ -81,6 +81,14 @@ def related(a: str, b: str) -> bool:
     return common / min(len(sa), len(sb)) >= 0.6 and common >= min(2, len(sa), len(sb))
 
 
+def about(query: str, media: list[dict]) -> list[dict]:
+    """
+    Las entradas de AniList con algún título parecido a la búsqueda: AniList
+    devuelve también animes que no tienen nada que ver con lo buscado.
+    """
+    return [m for m in media if any(related(query, n) for n in names(m))]
+
+
 async def alternative_titles(query: str, limit: int = 3) -> list[str]:
     """
     Títulos con los que probar en japanpaw, de más a menos prometedor:
@@ -88,42 +96,45 @@ async def alternative_titles(query: str, limit: int = 3) -> list[str]:
     lanza excepciones: si AniList falla, devuelve [].
     """
     key = _norm(query)
-    hit = _cache.get(key)
-    if hit and time.time() - hit[0] < CACHE_TTL:
-        return hit[1][:limit]
+    hit = _cached(key)
+    if hit is not None:
+        return hit[:limit]
 
-    try:
-        async with httpx.AsyncClient(timeout=10) as c:
-            r = await c.post(ANILIST_URL, json={"query": QUERY, "variables": {"s": query}})
-            r.raise_for_status()
-            media = r.json()["data"]["Page"]["media"] or []
-    except Exception as e:
-        log.warning("AniList no ha respondido para %r: %s", query, e)
+    data = await anilist.query(QUERY, {"s": query})
+    if data is None:
         return []
-
-    # AniList devuelve también animes que no tienen nada que ver con lo
-    # buscado: solo valen los que tienen algún título parecido a la búsqueda
-    def names(m):
-        t = m.get("title") or {}
-        return [x for x in (t.get("romaji"), t.get("english"), *(m.get("synonyms") or [])) if x]
-
-    media = [m for m in media if any(related(query, n) for n in names(m))]
-
-    titles: list[str] = []
-    seen = {key}
-    for m in media:
-        t = m.get("title") or {}
-        for cand in (t.get("romaji"), t.get("english"), *(m.get("synonyms") or [])[:2]):
-            if not cand or not _LATIN_RE.match(cand):
-                continue
-            n = _norm(cand)
-            if n and n not in seen:
-                seen.add(n)
-                titles.append(cand.replace("’", "'"))
-    # el romaji de cada anime primero (es como lo nombra japanpaw casi siempre)
-    romajis = [m["title"]["romaji"].replace("’", "'") for m in media if (m.get("title") or {}).get("romaji")]
-    titles.sort(key=lambda x: 0 if x in romajis else 1)
+    media = about(query, anilist.media(data))
+    titles = _romaji_first(_latin_titles(media, skip=key), media)
 
     _cache[key] = (time.time(), titles)
     log.info("AniList: %r -> %s", query, titles[:limit])
     return titles[:limit]
+
+
+def _cached(key: str) -> list[str] | None:
+    hit = _cache.get(key)
+    return hit[1] if hit and time.time() - hit[0] < CACHE_TTL else None
+
+
+def _candidates(m: dict) -> tuple:
+    """Romaji, inglés y los dos primeros sinónimos de una entrada (pueden faltar)."""
+    t = m.get("title") or {}
+    return t.get("romaji"), t.get("english"), *(m.get("synonyms") or [])[:2]
+
+
+def _latin_titles(media: list[dict], skip: str) -> list[str]:
+    """Los candidatos en alfabeto latino, sin repetir (ni el de `skip`, ya normalizado)."""
+    titles: list[str] = []
+    seen = {skip}
+    for cand in (c for m in media for c in _candidates(m) if c and _LATIN_RE.match(c)):
+        n = _norm(cand)
+        if n and n not in seen:
+            seen.add(n)
+            titles.append(cand.replace("’", "'"))
+    return titles
+
+
+def _romaji_first(titles: list[str], media: list[dict]) -> list[str]:
+    """El romaji de cada anime primero (es como lo nombra japanpaw casi siempre)."""
+    romajis = [m["title"]["romaji"].replace("’", "'") for m in media if (m.get("title") or {}).get("romaji")]
+    return sorted(titles, key=lambda x: 0 if x in romajis else 1)

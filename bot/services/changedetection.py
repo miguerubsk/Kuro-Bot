@@ -56,15 +56,16 @@ class ChangeDetectionClient:
             return r.text
 
     # ------------------------------------------------------------- watches
-    def payload(self, url: str, title: str, schedule) -> dict:
-        body = {
-            "url": url,
-            "title": title,
-            "include_filters": [FILTER],
+    def _timing(self, schedule) -> dict:
+        """Cada cuánto y qué días se mira: dentro del horario, cada check_minutes; sin horario, cada 6 h."""
+        return {
             "time_between_check_use_default": False,
             "time_between_check": {"minutes": self.check_minutes} if schedule.limited else {"hours": 6},
             "time_schedule_limit": schedule.time_schedule_limit(self.tz),
         }
+
+    def payload(self, url: str, title: str, schedule) -> dict:
+        body = {"url": url, "title": title, "include_filters": [FILTER], **self._timing(schedule)}
         if self.tag:
             body["tag"] = self.tag
         if self.fetch_backend:
@@ -93,11 +94,7 @@ class ChangeDetectionClient:
         return uuid
 
     async def reschedule(self, uuid: str, schedule):
-        await self._call("PUT", f"/watch/{uuid}", {
-            "time_between_check_use_default": False,
-            "time_between_check": {"minutes": self.check_minutes} if schedule.limited else {"hours": 6},
-            "time_schedule_limit": schedule.time_schedule_limit(self.tz),
-        })
+        await self._call("PUT", f"/watch/{uuid}", self._timing(schedule))
 
     async def delete(self, uuid: str):
         await self._call("DELETE", f"/watch/{uuid}")

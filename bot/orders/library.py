@@ -47,22 +47,32 @@ class LibraryChecker:
             log.warning("Consulta de biblioteca sin resultado para %s: %s", post.paste_url, lib)
             return out
 
-        say = self.k.persona.to(chat_id)
         missing = lib.get("missing") or []
         upgrade = lib.get("upgrade") or []
         out.exempt = bool(missing) and set(missing) <= set(upgrade)
-        if out.exempt:
-            out.user_note = say("library_upgrade")
-        elif lib.get("kind") != "movie" and lib.get("have"):
-            out.user_note = say("library_partial", have=lib["have"], available=lib.get("available", "?"),
-                                count=len(missing), ranges=compress_ranges(missing))
-        where = e(lib.get("folder") or "")
-        out.admin_note = (
-            f"\n📚 En biblioteca (.mkv): {lib.get('have', 0)} de {lib.get('available', '?')}"
-            + (f" (faltan {compress_ranges(missing)})" if lib.get("have") else "")
-            + (f"\n📀 Mejora de calidad (hay otro formato): {compress_ranges(upgrade)}" if upgrade else "")
-            + (" — <b>no gasta cupo</b>" if out.exempt else "")
-            + (f"\nCarpeta: <code>{where}</code>" if where else "")
-            + (" — nueva" if lib.get("new_folder") else "")
-        )
+        out.user_note = self._user_note(lib, missing, out.exempt, chat_id)
+        out.admin_note = _admin_note(lib, missing, upgrade, out.exempt)
         return out
+
+    def _user_note(self, lib: dict, missing: list, exempt: bool, chat_id: int) -> str:
+        """Si solo mejora la calidad, no gasta cupo; si ya tiene parte, qué falta."""
+        say = self.k.persona.to(chat_id)
+        if exempt:
+            return say("library_upgrade")
+        if lib.get("kind") != "movie" and lib.get("have"):
+            return say("library_partial", have=lib["have"], available=lib.get("available", "?"),
+                       count=len(missing), ranges=compress_ranges(missing))
+        return ""
+
+
+def _admin_note(lib: dict, missing: list, upgrade: list, exempt: bool) -> str:
+    """Lo que hay en la biblioteca, para que el admin decida (HTML)."""
+    where = e(lib.get("folder") or "")
+    return (
+        f"\n📚 En biblioteca (.mkv): {lib.get('have', 0)} de {lib.get('available', '?')}"
+        + (f" (faltan {compress_ranges(missing)})" if lib.get("have") else "")
+        + (f"\n📀 Mejora de calidad (hay otro formato): {compress_ranges(upgrade)}" if upgrade else "")
+        + (" — <b>no gasta cupo</b>" if exempt else "")
+        + (f"\nCarpeta: <code>{where}</code>" if where else "")
+        + (" — nueva" if lib.get("new_folder") else "")
+    )

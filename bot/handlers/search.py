@@ -36,10 +36,13 @@ class SearchMixin:
         allowed = [r for r in results if not k.blocked(ctx.chat_id, r.title)]
         if results and not allowed:
             return await status.edit_text(ctx.say("blocked_anime", title=query), parse_mode="HTML")
-        results = allowed
-        if not results:
+        if not allowed:
             return await self.not_found(ctx, status, query)
+        await self._show(ctx, status, query, allowed, alias)
 
+    async def _show(self, ctx, status, query: str, results, alias):
+        """Los resultados: en fichas con portada si hay fichas; si no (o fallan), la lista de siempre."""
+        k = self.k
         found, details = await asyncio.gather(ResultsBuilder(k).build(ctx.session, results),
                                               k.site.details([r.post_id for r in results]))
         intro = (ctx.say("alias_hint", query=query, alias=alias) + "\n") if alias else ""
@@ -52,12 +55,10 @@ class SearchMixin:
                 log.exception("No se pudieron enseñar las fichas; va la lista de siempre")
         await status.edit_text(intro + ctx.say("pick") + outro, parse_mode="HTML", reply_markup=found.keyboard())
 
-
     async def not_found(self, ctx, status, query: str):
         """Sin resultados en la web: si se puede, las opciones de AniList para buscarlo por torrent."""
         text = ctx.say("not_found", query=query)
-        options = await self.k.catalog.options(query) if self.k.torrent_allowed(ctx.chat_id) else None
-        options = [o for o in options or [] if not self.k.blocked(ctx.chat_id, o.title, o.english)]
+        options = await self._torrent_options(ctx, query)
         if not options:
             return await status.edit_text(text, parse_mode="HTML")
         text += "\n\n" + ctx.say("torrent_pick")
@@ -69,13 +70,25 @@ class SearchMixin:
             return await self.k.cards.send(ctx.bot, ctx.chat_id, ctx.session, choices, details, torrent=True)
         except Exception:
             log.exception("No se pudieron enseñar las fichas de AniList; va la lista")
-        rows = []
-        for o in options:
-            rows.append([button(o.label(), f"{TORRENT_OFFER}:{o.anilist_id}", width=60)])
-            if o.has_pack:
-                rows.append([button(f"📦 Todo: {o.title}", f"{TORRENT_ALL}:{o.anilist_id}", width=60)])
-        rows.append(cancel_row())
-        await status.edit_text(text, parse_mode="HTML", reply_markup=InlineKeyboardMarkup(rows))
+        await status.edit_text(text, parse_mode="HTML", reply_markup=_options_keyboard(options))
+
+    async def _torrent_options(self, ctx, query: str) -> list:
+        """Las opciones de AniList que puede pedir por torrent (ninguna si no tiene permiso)."""
+        if not self.k.torrent_allowed(ctx.chat_id):
+            return []
+        options = await self.k.catalog.options(query) or []
+        return [o for o in options if not self.k.blocked(ctx.chat_id, o.title, o.english)]
+
+
+def _options_keyboard(options) -> InlineKeyboardMarkup:
+    """Las opciones de AniList en lista: una por fila y, si tiene más cosas, su «todo» detrás."""
+    rows = []
+    for o in options:
+        rows.append([button(o.label(), f"{TORRENT_OFFER}:{o.anilist_id}", width=60)])
+        if o.has_pack:
+            rows.append([button(f"📦 Todo: {o.title}", f"{TORRENT_ALL}:{o.anilist_id}", width=60)])
+    rows.append(cancel_row())
+    return InlineKeyboardMarkup(rows)
 
 
 @register

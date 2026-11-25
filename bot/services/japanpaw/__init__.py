@@ -9,6 +9,7 @@ textos usan {site} (ver persona).
 import html as htmlmod
 import logging
 import urllib.parse
+from collections import Counter
 
 import httpx
 
@@ -22,6 +23,21 @@ from .ranking import rank
 __all__ = ["JapanpawClient", "Details", "PostInfo", "SearchResult", "clean_title"]
 
 log = logging.getLogger(__name__)
+
+
+def _search_result(item: dict) -> SearchResult:
+    """Un resultado de la búsqueda de WordPress (sin título: «Post <id>»)."""
+    title = htmlmod.unescape(item.get("title") or "").strip()
+    return SearchResult(post_id=int(item["id"]), url=item["url"], title=title or f"Post {item['id']}")
+
+
+def _tell_apart(results: list[SearchResult]) -> list[SearchResult]:
+    """Títulos repetidos (distintas versiones): se distinguen por id."""
+    count = Counter(r.title for r in results)
+    for r in results:
+        if count[r.title] > 1:
+            r.title = f"{r.title} (#{r.post_id})"
+    return results
 
 
 class JapanpawClient:
@@ -63,19 +79,9 @@ class JapanpawClient:
         params = urllib.parse.urlencode({"search": query, "per_page": self.FETCH_RESULTS,
                                          "type": "post", "subtype": "post"})
         data = await self._json(f"/wp-json/wp/v2/search?{params}")
-        found = [SearchResult(post_id=int(item["id"]), url=item["url"],
-                              title=htmlmod.unescape(item.get("title") or "").strip() or f"Post {item['id']}")
-                 for item in data or []
+        found = [_search_result(item) for item in data or []
                  if item.get("subtype") == "post" and is_allowed_url(item.get("url", ""))]
-        results = rank(query, found)[:self.MAX_RESULTS]
-        seen_titles: dict[str, int] = {}
-        for r in results:
-            seen_titles[r.title] = seen_titles.get(r.title, 0) + 1
-        # títulos repetidos (distintas versiones): se distinguen por id
-        for r in results:
-            if seen_titles[r.title] > 1:
-                r.title = f"{r.title} (#{r.post_id})"
-        return results
+        return _tell_apart(rank(query, found)[:self.MAX_RESULTS])
 
     async def search_with_aliases(self, query: str) -> tuple[list[SearchResult], str | None]:
         """
@@ -89,27 +95,28 @@ class JapanpawClient:
             return direct, None
 
         results = list(direct)
-        seen = {r.post_id for r in results}
         used = None
         for alt in await aliases.alternative_titles(query):
-            try:
-                found = await self.search(alt)
-            except Exception:
-                log.warning("Fallo buscando el alias %r", alt, exc_info=True)
-                continue
-            # la búsqueda mira también el texto de las fichas y con nombres
-            # cortos trae de todo: solo se quedan los que se parecen
-            new = [r for r in found if r.post_id not in seen
-                   and (aliases.related(alt, r.title) or aliases.related(query, r.title))]
+            new = await self._new_by_alias(query, alt, {r.post_id for r in results})
             if new and used is None:
                 used = alt
-            for r in new:
-                seen.add(r.post_id)
-                results.append(r)
+            results += new
             if len(results) >= self.MAX_RESULTS:
                 break
         # el alias solo merece mención si sin él no habría salido nada
         return results[:self.MAX_RESULTS], (used if not direct else None)
+
+    async def _new_by_alias(self, query: str, alt: str, seen: set[int]) -> list[SearchResult]:
+        """Lo que sale buscando con el alias y no estaba en `seen` ([] si la búsqueda falla)."""
+        try:
+            found = await self.search(alt)
+        except Exception:
+            log.warning("Fallo buscando el alias %r", alt, exc_info=True)
+            return []
+        # la búsqueda mira también el texto de las fichas y con nombres
+        # cortos trae de todo: solo se quedan los que se parecen
+        return [r for r in found if r.post_id not in seen
+                and (aliases.related(alt, r.title) or aliases.related(query, r.title))]
 
     # -------------------------------------------------------------- posts
     async def post_kinds(self, post_ids: list[int]) -> dict[int, set[str]]:

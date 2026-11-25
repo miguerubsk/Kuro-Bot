@@ -106,26 +106,28 @@ class JobComplete(EventHandler):
         done, failed = ev.get("done") or [], ev.get("failed") or []
         req, to, to_admin = ev.req, ev.to, self._to_admin(ev)
         self.k.db.set_progress(req.id, total=len(done) + len(failed), done=len(done), failed=len(failed))
-        say = self.k.persona.to(to)
-        if done:
-            self.k.db.set_status(req.id, Status.COMPLETED)
-            if ev.movie:
-                msg = say("movie_done", name=ev.name)
-            elif failed:
-                msg = say("job_done_partial", name=ev.name, done=len(done), failed=len(failed),
-                          failed_ranges=compress_ranges(failed))
-            else:
-                msg = say("job_done_all", name=ev.name, done=len(done))
-        else:
-            self.k.db.set_status(req.id, Status.FAILED)  # no se ha descargado nada: devuelve el cupo
-            msg = None if (ev.movie and not to_admin) else say("movie_failed" if ev.movie else "job_failed",
-                                                               name=ev.name)
+        # sin nada descargado se da por fallido: devuelve el cupo
+        self.k.db.set_status(req.id, Status.COMPLETED if done else Status.FAILED)
+        msg = self._summary(ev, done, failed, to_admin)
         if msg:
             await self.k.messenger.send(to, msg)
         if to_admin:
             failed_html = f" ({compress_ranges(failed)})" if failed and not ev.movie else ""
             await self._tell(self.k.admin, "admin_job_done", req_id=req.id, who=req.user_name, name=ev.name,
                              done=len(done), failed=len(failed), failed_html=failed_html)
+
+    def _summary(self, ev: Event, done: list, failed: list, to_admin: bool) -> str | None:
+        """Lo que se le cuenta a quien lo pidió (nada si es el miauestro y ya lo supo por episode_failed)."""
+        say = self.k.persona.to(ev.to)
+        if not done:
+            return None if (ev.movie and not to_admin) else say("movie_failed" if ev.movie else "job_failed",
+                                                                name=ev.name)
+        if ev.movie:
+            return say("movie_done", name=ev.name)
+        if failed:
+            return say("job_done_partial", name=ev.name, done=len(done), failed=len(failed),
+                       failed_ranges=compress_ranges(failed))
+        return say("job_done_all", name=ev.name, done=len(done))
 
 
 class WatchEvents:
@@ -139,17 +141,22 @@ class WatchEvents:
     async def handle(self, k, raw: dict):
         if raw.get("event") != "episode_done" or raw.get("kind") == "movie":
             return
-        url = raw.get("watch_url") or ""
         name, ep = raw.get("name") or "", int(raw.get("episode") or 0)
-        told = set()
-        for t in k.db.track_active_for_url(url):
-            if k.is_admin(t.chat_id) or t.chat_id in told:
-                continue
-            told.add(t.chat_id)
+        followers = self._clients_following(k, raw.get("watch_url") or "")
+        for t in followers:
             await k.messenger.send(t.chat_id, k.persona.say("track_ep_done", t.chat_id,
                                                             name=name or t.title, ep=ep))
-        if told:
-            log.info("Capítulo %s de %s (seguimiento): avisados %s cliente(s)", ep, name, len(told))
+        if followers:
+            log.info("Capítulo %s de %s (seguimiento): avisados %s cliente(s)", ep, name, len(followers))
+
+    @staticmethod
+    def _clients_following(k, url: str) -> list:
+        """Un seguimiento activo por cliente que vigila esa URL (el miauestro no cuenta)."""
+        by_chat = {}
+        for t in k.db.track_active_for_url(url):
+            if not k.is_admin(t.chat_id):
+                by_chat.setdefault(t.chat_id, t)
+        return list(by_chat.values())
 
 
 class EventRouter:

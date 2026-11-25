@@ -159,33 +159,54 @@ class AutomatorClient:
 def describe(result: dict, fallback_name: str, for_admin: bool = False) -> str:
     st = result.get("status")
     name = html.escape(result.get("name") or fallback_name)
-    folder = f"\nCarpeta: <code>{html.escape(result.get('folder', ''))}</code>" if for_admin and result.get("folder") else ""
-    if result.get("kind") == "movie":
-        where = html.escape(f"{result.get('folder', '')}/{result.get('file', '')}")
-        dest = f"\nDestino: <code>{where}</code>" if for_admin else ""
-        if st == "queued" and result.get("queued"):
-            return f"🎬 Película <b>{name}</b> en cola.{dest}"
-        if st == "queued":
-            return f"🎬 La película <b>{name}</b> ya estaba en cola."
-        if st == "nothing_new":
-            return f"✅ La película <b>{name}</b> ya estaba en la colección.{dest}"
+    movie = _describe_movie(result, name, for_admin) if result.get("kind") == "movie" else None
+    if movie:
+        return movie
+    folder = _folder_line(result) if for_admin else ""
     if st == "queued":
-        queued = result.get("queued") or []
-        txt = (
-            f"📥 <b>{name}</b>: {len(queued)} capítulo(s) en cola "
-            f"({compress_ranges(queued)}) de {result.get('available', '?')} disponibles"
-        )
-        if result.get("have"):
-            txt += f"; ya había {result['have']}"
-        txt += "."
-        if result.get("already_in_progress"):
-            txt += f"\nYa estaban en cola: {compress_ranges(result['already_in_progress'])}"
-        return txt + folder
+        return _describe_queued(result, name) + folder
     if st == "nothing_new":
         return (
             f"✅ <b>{name}</b> ya está completo ({result.get('have', '?')} de "
             f"{result.get('available', '?')} capítulos disponibles)." + folder
         )
+    return _describe_error(result, name, for_admin)
+
+
+def _folder_line(result: dict) -> str:
+    return f"\nCarpeta: <code>{html.escape(result['folder'])}</code>" if result.get("folder") else ""
+
+
+def _describe_movie(result: dict, name: str, for_admin: bool) -> str | None:
+    """La respuesta de una película; None si no es de las que se cuentan aparte (los errores)."""
+    st = result.get("status")
+    where = html.escape(f"{result.get('folder', '')}/{result.get('file', '')}")
+    dest = f"\nDestino: <code>{where}</code>" if for_admin else ""
+    if st == "queued" and result.get("queued"):
+        return f"🎬 Película <b>{name}</b> en cola.{dest}"
+    if st == "queued":
+        return f"🎬 La película <b>{name}</b> ya estaba en cola."
+    if st == "nothing_new":
+        return f"✅ La película <b>{name}</b> ya estaba en la colección.{dest}"
+    return None
+
+
+def _describe_queued(result: dict, name: str) -> str:
+    queued = result.get("queued") or []
+    txt = (
+        f"📥 <b>{name}</b>: {len(queued)} capítulo(s) en cola "
+        f"({compress_ranges(queued)}) de {result.get('available', '?')} disponibles"
+    )
+    if result.get("have"):
+        txt += f"; ya había {result['have']}"
+    txt += "."
+    if result.get("already_in_progress"):
+        txt += f"\nYa estaban en cola: {compress_ranges(result['already_in_progress'])}"
+    return txt
+
+
+def _describe_error(result: dict, name: str, for_admin: bool) -> str:
+    st = result.get("status")
     reason = ERROR_TEXT.get(st, f"estado desconocido «{html.escape(str(st))}»")
     txt = f"❌ No se pudo encolar <b>{name}</b>: {reason}."
     if for_admin and result.get("error"):
@@ -203,6 +224,16 @@ def describe_torrent(result: dict, fallback_name: str) -> str:
         txt = f"🧲 <b>{name}</b>: faltan {compress_ranges(result.get('missing') or [])}."
     else:
         txt = describe(result, fallback_name, for_admin=True)
+    extra = _torrent_extra(result)
+    if extra:
+        txt += "\n🧲 Torrent · " + " · ".join(extra)
+    if "Carpeta:" not in txt:
+        txt += _folder_line(result)
+    return txt
+
+
+def _torrent_extra(result: dict) -> list[str]:
+    """Temporada, grupos (de más a menos capítulos) y lo que Transmission no aceptó."""
     extra = []
     if result.get("season"):
         extra.append(f"T{html.escape(str(result['season']))}")
@@ -211,8 +242,4 @@ def describe_torrent(result: dict, fallback_name: str) -> str:
         extra.append(", ".join(f"{html.escape(g)} ×{n}" for g, n in sorted(groups.items(), key=lambda x: -x[1])))
     if result.get("not_added"):
         extra.append(f"Transmission no aceptó {compress_ranges(result['not_added'])}")
-    if extra:
-        txt += "\n🧲 Torrent · " + " · ".join(extra)
-    if result.get("folder") and "Carpeta:" not in txt:
-        txt += f"\nCarpeta: <code>{html.escape(result['folder'])}</code>"
-    return txt
+    return extra

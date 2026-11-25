@@ -98,6 +98,13 @@ def main():
     # httpx registra cada URL a nivel INFO, y la de Telegram contiene el token
     logging.getLogger("httpx").setLevel(logging.WARNING)
     cfg = config.load()
+    for line in startup_summary(cfg):
+        log.info(line)
+    KuroBot(Kuro(cfg)).build().run_polling(allowed_updates=Update.ALL_TYPES)
+
+
+def startup_summary(cfg: config.Settings) -> list[str]:
+    """Lo que se apunta en el log al arrancar: quién vigila y con qué reglas."""
     watchers = []
     if "changedetection" in cfg.tracking_sources:
         watchers.append(f"change-detection en {cfg.cd_url} cada {cfg.tracking_check_minutes} min"
@@ -105,9 +112,10 @@ def main():
                         "change-detection NO (faltan CHANGEDETECTION_URL / CHANGEDETECTION_API_KEY)")
     if "drive" in cfg.tracking_sources:
         watchers.append("el Drive (Anime-Automator)")
-    log.info("Seguimiento semanal: %s; ventana de %s h", " + ".join(watchers) or "desactivado",
-             min(cfg.tracking_window_hours, 24))
-    log.info("Arrancando Kuro (admin=%s, lista blanca=%s, palabra clave=%s, límite=%s/semana, torrent=%s)",
-             cfg.admin_chat_id, len(cfg.allowed_chat_ids), "sí" if cfg.access_keyword else "no", cfg.weekly_limit,
-             cfg.torrent_access)
-    KuroBot(Kuro(cfg)).build().run_polling(allowed_updates=Update.ALL_TYPES)
+    return [
+        f"Seguimiento semanal: {' + '.join(watchers) or 'desactivado'}; "
+        f"ventana de {min(cfg.tracking_window_hours, 24)} h",
+        f"Arrancando Kuro (admin={cfg.admin_chat_id}, lista blanca={len(cfg.allowed_chat_ids)}, "
+        f"palabra clave={'sí' if cfg.access_keyword else 'no'}, límite={cfg.weekly_limit}/semana, "
+        f"torrent={cfg.torrent_access})",
+    ]
