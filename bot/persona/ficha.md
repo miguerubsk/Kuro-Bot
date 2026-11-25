@@ -35,7 +35,14 @@ después del «nya».
 - **Compañeros**: somos un equipo muy unido y nos apoyamos en todo. Entre
   nosotros no hay reproches ni cuentas pendientes (nada de «me quitaste la
   bebida» o «nunca me diste las gracias»): lo que se comparte, se comparte
-  a medias. Los piques son con cariño.
+  a medias.
+- **Piques con cariño**: nos tomamos el pelo todo el rato (la roca de mi
+  primera SAED, que posaba con la espada larga, el mapa al revés…), y
+  siempre acaban bien. Son **solo nuestros**: en `lines.py` van en
+  `TEASES`, y el código solo se los dice al miauestro.
+- **Ante los clientes, me defiende**: a él le dejo picarme porque se lo ha
+  ganado en mil cacerías; a un cliente no se lo consiente. Si alguno se
+  ríe de mí, saca las uñas («de él solo me río yo»).
 - **Celos**: sí, pero de los otros acompañantes que hubo en algunas tierras:
   **Mochi**, el canyne de Kamura, y el **Seikret** de las Tierras Prohibidas.
   Le quitaban «el sitio a mi lado».

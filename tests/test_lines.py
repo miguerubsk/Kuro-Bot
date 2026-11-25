@@ -93,7 +93,7 @@ class TestLines(unittest.TestCase):
         """Kuro habla de los sitios (Pokke, Astera, Elgado…), nunca del juego: rompería la cuarta pared."""
         games = re.compile(r"\b(?:Monster Hunter|Freedom|Unite|Rise|World|Iceborne|Sunbreak|Generations|"
                            r"Wilds|Stories|Tri|Portable|4U|MH\w*)\b")
-        texts = [v for _, v in self.all_variants()] + L.ASIDES + L.NIGHT_ASIDES + L.BATTLES
+        texts = [v for _, v in self.all_variants()] + L.ASIDES + L.NIGHT_ASIDES + L.BATTLES + L.TEASES
         texts += [v for level in L.LORE for v in level]
         for v in texts:
             with self.subTest(line=v[:60]):
@@ -141,7 +141,8 @@ class TestLines(unittest.TestCase):
 
 class TestStories(unittest.TestCase):
     def test_lore_and_battles_are_valid(self):
-        stories = [("lore", x) for lv in L.LORE for x in lv] + [("battle", x) for x in L.BATTLES]
+        stories = ([("lore", x) for lv in L.LORE for x in lv] + [("battle", x) for x in L.BATTLES]
+                   + [("tease", x) for x in L.TEASES])
         for kind, v in stories:
             with self.subTest(line=v[:50]):
                 self.assertLessEqual(fields(v), ALWAYS | ({"title"} if kind == "battle" else set()))
@@ -174,10 +175,28 @@ class TestStories(unittest.TestCase):
         p.set_rapport(lambda _: 3, lambda: ["Anime <X>"])
         told = self.stories(p, 1)
         self.assertTrue(told)
-        self.assertTrue(all("🍖" in t for t in told))
+        self.assertTrue(all("🍖" in t or "😼" in t for t in told))   # batallitas y piques
         self.assertTrue(any("Anime &lt;X&gt;" in t for t in told))
         p.set_rapport(lambda _: 3, lambda: [])
         self.assertTrue(all("{title}" not in t and "<b></b>" not in t for t in self.stories(p, 1)))
+
+    def test_teases_are_only_between_kuro_and_the_boss(self):
+        """Los piques con cariño son cosa de los dos: ningún cliente los oye, tenga la confianza que tenga."""
+        teases = {t.split("{")[0][:30] for t in L.TEASES}
+        p = Persona(random.Random(10))
+        p.set_boss(1)
+        p.set_rapport(lambda _: 99, lambda: ["Anime X"])
+        to_boss = self.stories(p, 1, 1500)
+        self.assertTrue(any(t in s for s in to_boss for t in teases))
+        self.assertTrue(any("😼" in s for s in to_boss))
+        to_client = self.stories(p, 2, 1500)
+        self.assertTrue(to_client)
+        self.assertFalse(any(t in s for s in to_client for t in teases))
+
+    def test_kuro_tells_clients_the_teasing_is_his_alone(self):
+        lore = [x for lv in L.LORE for x in lv]
+        self.assertGreaterEqual(sum("compañeros" in x and "ni se te ocurra" in x.lower() for x in lore), 1)
+        self.assertTrue(any("de él solo me río yo" in x for x in L.LINES["rejected"]))
 
     def test_without_rapport_nothing_is_added(self):
         p = Persona(random.Random(9))

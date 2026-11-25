@@ -21,8 +21,9 @@ con ella. En corto:
 - Kuro nunca nombra un juego (rompería la cuarta pared): habla de los
   sitios. Lo comprueba tests/test_lines.py.
 - Son compañeros que se apoyan en todo: nada de reproches entre ellos (ni
-  «me quitaste la bebida»). Piques con cariño, sí; y celos, de los otros
-  acompañantes (Mochi, el Seikret).
+  «me quitaste la bebida»). Piques con cariño, sí (TEASES), pero solo entre
+  los dos: a un cliente nunca, y si un cliente se mete con el miauestro,
+  Kuro saca las uñas. Celos, de los otros acompañantes (Mochi, el Seikret).
 - No metas más de una o dos referencias por frase y rota el repertorio de
   la ficha.
 
@@ -587,6 +588,8 @@ LINES: dict[str, list[str]] = {
         "❌ <b>{title}</b>: denegado por el miauestro. Tranquilo, {voc}, no gasta carro.",
         "❌ Mala suerte, {voc}: el miauestro no quiere <b>{title}</b>. Tus carros siguen intactos, nya.",
         "❌ El miauestro ha arrugado el bigote con <b>{title}</b>, {voc}. Esta vez no; no te cuesta nada.",
+        "❌ El miauestro dice que no a <b>{title}</b>, {voc}, y sus razones tendrá. No gasta carro. Y sin "
+        "rechistar, ¿eh?: de él solo me río yo.",
     ],
     "nothing_new": [
         "😸 <b>{title}</b> ya está entero en la colección, {voc}. No te lo cobro, nya.",
@@ -1189,6 +1192,8 @@ LORE: list[list[str]] = [
         "En Seliana había aguas termales, {voc}. Ahí me bañaba encantado. No es lo mismo que una bañera. "
         "No preguntes por la bañera.",
         "No me ofrezcas pepinillos, {voc}. Es una larga historia con un Deviljho. Otro día.",
+        "Al miauestro solo le pico yo, {voc}: que si la roca de su primera SAED, que si posaba con la "
+        "espada larga… Eso es cosa de compañeros. Tú, ni se te ocurra. Fsss.",
     ],
     [   # 2: cliente de confianza (las cacerías y el miauestro en acción)
         "Te lo cuento porque ya eres de la casa, {voc}: el hacha cargada es el arma del miauestro. "
@@ -1228,6 +1233,8 @@ LORE: list[list[str]] = [
         "así que durante un rato se hizo un lío.",
         "Bigotes, el del puerto, me enseñó a moverme por {site}. A cambio le guardo las raspas de los "
         "viernes. Un acuerdo de caballeros… y de gatos.",
+        "Una vez un cliente se rió del miauestro en mi puesto, {voc}. Le bajé la persiana en los bigotes. "
+        "Yo le tomo el pelo porque me lo he ganado en mil cacerías a su lado; los demás, respeto.",
     ],
     [   # 3: de los de siempre (lo que no cuenta a cualquiera)
         "Ya que eres de los de siempre, {voc}: con el Ukanlos estuvimos a un carro de fallar. Dos del "
@@ -1258,6 +1265,8 @@ LORE: list[list[str]] = [
         "tres libretas.",
         "Cuando el miauestro colgó las armas, {voc}, me vine con él a la ciudad. Me ofrecieron quedarme "
         "de felyne en Elgado, con el Almirante. Les dije que dónde iba a estar mejor que con mi cazador.",
+        "Te cuento un secreto, {voc}: yo me meto con el miauestro todo el rato. Pero si otro lo intenta, "
+        "saco las uñas. Eso solo se lo consiente a su felyne. Ni a ti, aunque seas de los de siempre.",
         "La gata Persa del quinto y yo… bueno, {voc}, eso es otra historia. Solo te diré que los martes "
         "compartimos tejado y que no es asunto de las palomas.",
     ],
@@ -1324,6 +1333,35 @@ BATTLES = [
     "al router. Al final pasamos por el túnel de la cebolla, como en una misión de recolección clandestina.",
     "Aquella vez que se cayó el servidor a medio capítulo, {voc}… Un Bazelgeuse, seguro. Tú maldiciendo "
     "como cuando te triplecarreaban, y yo tirando cosas de la mesa para animarte.",
+]
+# Piques con cariño: solo entre Kuro y el miauestro (salen con las batallitas,
+# con 😼). A un cliente nunca: a él, Kuro le deja claro que eso es cosa de
+# los dos (ver LORE y "rejected"). Solo {voc}/{Voc}/{site}.
+TEASES = [
+    "Oye, {voc}, ¿sigues llamando «calentamiento» a la roca de tu primera SAED? En mi libreta pone "
+    "«roca 1, miauestro 0». Con cariño, ¿eh? Fufufu.",
+    "Tantos años de hacha cargada, {voc}, y una vez te vi cargar los viales mirando hacia el lado "
+    "contrario. Luego tumbaste al monstruo igual, eso sí. Pero yo lo vi.",
+    "Dices que estás retirado, {voc}, pero cada vez que suena un trueno echas la mano a la espalda "
+    "buscando el hacha. Te he visto. Yo saco las uñas, así que estamos en paz.",
+    "«Una última cacería y a dormir», decías en Elgado, {voc}. Siempre acabábamos viendo amanecer. Yo "
+    "llevaba la cuenta… y te tapaba con la capa cuando te dormías en el campamento.",
+    "Con la espada larga posabas, {voc}. No lo niegues: después de cada tajo final, una pausa dramática "
+    "con el pelo al viento. Kuro te aplaudía igual, nya.",
+    "Tú lo llamabas «música», {voc}. Las palomas del callejón aún se acuerdan de tu cuerno de caza. Eso "
+    "sí: con tus bufos nadie se caía, y eso no lo cambio por ningún concierto.",
+    "¿Te acuerdas de cuando te caíste del puente de Kamura, {voc}? El día después de que el grupo te "
+    "bautizara «el que no se cae». Yo bajé a por ti. Y no se lo he contado a nadie. Bueno, a la Persa.",
+    "Bloqueabas a un Fatalis sin pestañear, {voc}, y luego dabas un salto con la araña de la bañera. "
+    "Tranquilo, de las arañas te protejo yo. De la bañera, no: ahí vas solo.",
+    "Tu mapa, {voc}. Siempre al revés. Menos mal que el olfato lo pongo yo y las SAED las pones tú: "
+    "repartidos así, no hay quien nos pare.",
+    "Comías carne asada como un Deviljho, {voc}. Pero siempre me dejabas el mejor trozo, así que te "
+    "perdono los mordiscos al aire y los ruiditos.",
+    "Cada vez que el Bazelgeuse aparecía, {voc}, ponías una cara… Ni el Rajang te la sacaba. Yo bufaba "
+    "y tú suspirabas. Qué equipo, nya.",
+    "Ya sé que apruebas los encargos muy en serio, {voc}, pero te he visto sonreír con algunos títulos. "
+    "Tranquilo: el secreto está a salvo con Kuro. Casi siempre.",
 ]
 STORY_KEYS = {
     "approved", "approved_boss", "job_done_all", "movie_done", "cancelled", "quota_left", "quota_admin",

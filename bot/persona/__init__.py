@@ -110,13 +110,18 @@ class Persona:
         return f"\n\n{icon} <i>{_CONTRACTIONS.sub(_contract, text.format(**values))}</i>"
 
     def _battle(self, values: dict) -> tuple[str, str] | None:
-        """Una batallita para el miauestro (a veces con un anime de verdad de los bajados), o nada."""
+        """
+        Una batallita o un pique con cariño para el miauestro (las batallitas, a
+        veces con un anime de verdad de los bajados), o nada. Los piques son
+        solo para él: _lore() nunca los ve.
+        """
         if self._rng.random() >= L.BATTLE_CHANCE:
             return None
         titles = self._titles() if self._titles else []
-        pool = [b for b in L.BATTLES if titles or "{title}" not in b]
+        pool = [b for b in L.BATTLES if titles or "{title}" not in b] + L.TEASES
         values["title"] = html.escape(self._rng.choice(titles)) if titles else ""
-        return self._fresh("__battle__", pool), "🍖"
+        picked = self._fresh("__battle__", pool)
+        return picked, "😼" if picked in L.TEASES else "🍖"
 
     def _lore(self, to: int) -> tuple[str, str] | None:
         """Un trozo de su vida, según la confianza con ese cliente, o nada."""
