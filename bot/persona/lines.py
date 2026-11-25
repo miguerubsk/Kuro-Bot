@@ -5,9 +5,9 @@ Ficha de personajes: persona/ficha.md (Kuro y el cazador, el miauestro).
 Es el canon: cualquier frase que cuente algo del pasado tiene que encajar
 con ella. En corto:
 
-- Kuro: gato negro, felyne del miauestro desde Freedom Unite (Aldea Pokke)
-  y en todos los juegos después. Casas: Pokke y Elgado; luego Astera y
-  Seliana, luego Bherna, y el resto (Wilds incluido) de pasada. Retirados,
+- Kuro: gato negro, felyne del miauestro desde la Aldea Pokke y en todas
+  las tierras después. Casas: Pokke y Elgado; luego Astera y Seliana, luego
+  Bherna, y el resto (las Tierras Prohibidas incluidas) de pasada. Retirados,
   ahora trapichea con anime desde el callejón. Habla con «nya» y juegos
   gatunos, pícaro pero honrado («palabra de felyne») y nocturno. Admira
   muchísimo a su cazador y está orgullosísimo de él: presume de él ante
@@ -18,6 +18,11 @@ con ella. En corto:
   También espada larga, cuerno de caza (bufos, tanque) y ballesta pesada
   (escudo acoplado, corta distancia a quemarropa, una apisonadora en
   Sunbreak); prodigio de apoyo con espada y escudo. Cazaba con un grupo.
+- Kuro nunca nombra un juego (rompería la cuarta pared): habla de los
+  sitios. Lo comprueba tests/test_lines.py.
+- Son compañeros que se apoyan en todo: nada de reproches entre ellos (ni
+  «me quitaste la bebida»). Piques con cariño, sí; y celos, de los otros
+  acompañantes (Mochi, el Seikret).
 - No metas más de una o dos referencias por frase y rota el repertorio de
   la ficha.
 
@@ -179,7 +184,7 @@ LINES: dict[str, list[str]] = {
         "Para ti la casa es libre, {voc}. Pide lo que quieras, que yo no llevo la cuenta, nya.",
         "Tú eres quien me llena el cuenco, {voc}: sin contar carros y sin preguntas.",
         "Las normas son para los clientes, {voc}. Tú pides y Kuro sale; eso es todo.",
-        "Contigo, barra libre, {voc}. Como en el campamento: el cazador manda y el felyne obedece.",
+        "Contigo, barra libre, {voc}. Como en el campamento: tú y yo, codo con zarpa.",
     ],
     "help_user": [
         "Normas de la casa, {voc}: tienes <b>{limit} carros por semana</b>, y cada encargo sale en uno. "
@@ -988,9 +993,9 @@ LINES: dict[str, list[str]] = {
         "😿 {days}, {voc}. He contado las baldosas del pasillo. Son 48. Y una suelta.",
     ],
     "lonely_3": [
-        "😾 {days}, {voc}. {days}. Un felyne no olvida, ¿sabes? Ni perdona fácilmente. Pero vuelve, ¿vale?",
+        "😿 {days}, {voc}. {days}. Un felyne no está hecho para estar tanto tiempo lejos de su cazador. Vuelve, ¿vale?",
         "🌧️ Ha llovido en el tejado y nadie me ha abierto la ventana. {days} ya, {voc}. Estoy mojado y ofendido.",
-        "😿 En Pokke, después de cada cacería, me guardabas un trozo de carne asada. Ahora, {voc}, llevas {days} sin guardarme ni un «hola».",
+        "😿 En Pokke, después de cada cacería, compartíamos la carne asada junto a la chimenea. Llevo {days} guardándote tu trozo, {voc}.",
         "😾 He tirado un vaso de la mesa. Adrede. Mirándote. Aunque no estuvieras, {voc}. {days} sin vernos.",
         "😾 He dormido en tu teclado, {voc}. Llevas {days} fuera, así que ahora es mío. Tecla a tecla.",
         "😾 {days} sin noticias, {voc}. Ni con el Ukanlos tardaste tanto en volver al campamento.",
@@ -1020,7 +1025,7 @@ LINES: dict[str, list[str]] = {
         "🍂 Los gatos callejeros dicen que me estoy ablandando, {voc}. Que un felyne no espera tanto. {days} esperando.",
     ],
     "lonely_7": [
-        "💔 {Voc}… Kuro ha escrito su testamento en la caja de cartón: «todas mis sardinas para el miauestro que me abandonó». "
+        "💔 {Voc}… Kuro ha escrito su testamento en la caja de cartón: «todas mis sardinas para mi miauestro, esté donde esté». "
         "{days}. No te escribo más, que tengo mi orgullo. Pero aquí sigo.",
         "💔 Ya está, {voc}: me he hecho un ovillo y no pienso moverme hasta que vuelvas. Llevo {days}. "
         "Esta es la última vez que te maúllo… hasta que vuelvas.",
@@ -1031,8 +1036,8 @@ LINES: dict[str, list[str]] = {
     ],
     "lonely_clients": [
         "Por cierto, han pasado {count} encargo(s) mientras no estabas ({who}). Yo los he atendido solito, nya.",
-        "Que conste: los clientes sí vienen. {count} encargo(s) estos días ({who}). Tú, no.",
-        "Para que lo sepas, han venido a verme ({who}): {count} encargo(s). Ellos sí se acuerdan de Kuro.",
+        "Que conste: los clientes han seguido viniendo. {count} encargo(s) estos días ({who}). A todos les he hablado de ti.",
+        "Para que lo sepas, han venido a verme ({who}): {count} encargo(s). Todos han preguntado por ti.",
     ],
     "lonely_last_title": [
         "Lo último que me pediste fue <b>{title}</b>. Lo guardo como recuerdo.",
@@ -1205,7 +1210,7 @@ LORE: list[list[str]] = [
         "ni oía los rugidos. Y él encajaba golpes que a otro lo habrían mandado al carro.",
         "Con espada y escudo, el miauestro era el ángel del grupo, {voc}: nadie pasaba más de un suspiro "
         "con poca vida ni envenenado. Polvo de vida, antídotos, pociones… y yo ayudando. Nuestro estilo.",
-        "En Freedom Unite le corté la cola a un Rathalos plateado, {voc}. Yo solito, con mi arma de "
+        "En Pokke le corté la cola a un Rathalos plateado, {voc}. Yo solito, con mi arma de "
         "felyne. El miauestro dice que fue su espada larga. Kuro sabe lo que vio.",
         "La primera vida la perdí en el volcán, {voc}: un Akantor, un rugido, la lava… y Kuro volviendo "
         "en el carro, chamuscado y orgulloso. Volvimos al día siguiente y lo tumbamos.",
@@ -1215,7 +1220,7 @@ LORE: list[list[str]] = [
         "miauestro me miraba desde el campamento, por fin al revés.",
         "La primera vez que vimos un Valstrax fue en Bherna, {voc}. Algo cayó del cielo como un cometa. El "
         "miauestro sacó el hacha cargada sin pestañear. Yo pestañeé por los dos.",
-        "En las cacerías de grupo de Freedom Unite, a los felynes nos dejaban en casa, {voc}. Yo esperaba "
+        "En las cacerías de grupo de Pokke, a los felynes nos dejaban en casa, {voc}. Yo esperaba "
         "en la puerta y, cuando volvían, exigía que me lo contaran todo. Con detalles.",
         "En los Frenesís de Kamura, {voc}, el miauestro se plantaba en la puerta con la ballesta "
         "pesada y no pasaba ni el viento. Yo le acercaba la munición. Bueno, la que no me comía.",
@@ -1240,7 +1245,7 @@ LORE: list[list[str]] = [
         "estado tan orgulloso de llevarle las pociones.",
         "La trilogía Fatalis, {voc}. El castillo Schrade. Ahí entendí que el miauestro estaba hecho de otra "
         "pasta: cuando todos corrían, él se acercaba con la ballesta pesada.",
-        "Y el Fatalis de Iceborne, {voc}, el de verdad. Bloqueo, bloqueo, punto de guardia… y SAED. Una y "
+        "Y el Fatalis de Seliana, {voc}, el de verdad. Bloqueo, bloqueo, punto de guardia… y SAED. Una y "
         "otra vez, sin fallar, hasta que el dragón negro cayó. Yo no respiré en toda la cacería.",
         "En Elgado, contra el Malzeno primordial, el grupo cayó dos veces, {voc}. A la tercera el "
         "miauestro sacó la espada y escudo y no dejó caer a nadie más. Desde entonces le llamo «el "
@@ -1274,7 +1279,7 @@ BATTLES = [
     "y le devolvías la SAED. Kuro nunca ha visto nada tan bonito. Y he visto atardeceres en Seliana.",
     "¿Te acuerdas del Alatreon, {voc}? Todo el mundo llorando con el chequeo de elemento y tú sacando el "
     "set de hacha cargada que tocaba. Seis sets, {voc}. Me sigue pareciendo una locura preciosa.",
-    "¿Te acuerdas del Fatalis de Iceborne, {voc}? Bloqueo, punto de guardia, SAED. Una y otra vez. Yo "
+    "¿Te acuerdas del Fatalis de Seliana, {voc}? Bloqueo, punto de guardia, SAED. Una y otra vez. Yo "
     "no respiré en toda la cacería.",
     "¿Te acuerdas del Bazelgeuse, {voc}? Ibas a por un Kulu-Ya-Ku y acababas bajo una lluvia de bombas. "
     "Todas las cacerías de rango alto en Astera. Todas.",
@@ -1283,7 +1288,7 @@ BATTLES = [
     "¿Te acuerdas del Deviljho que me agarró en Astera, {voc}? Le metiste una SAED en los morros y me "
     "soltó. Te debo una vida. Y desde entonces, nada de pepinillos.",
     "¿Te acuerdas del Akantor del volcán, {voc}? Yo volví en el carro sin una vida y tú, sin cejas. Al "
-    "día siguiente lo tumbamos. Nunca me has dado las gracias por el barril.",
+    "día siguiente lo tumbamos juntos: tú la SAED y yo el barril, en el momento justo.",
     "¿Te acuerdas de cuando le corté la cola al Rathalos plateado, {voc}? Tú dices que fue la espada "
     "larga. Kuro sabe lo que vio.",
     "¿Te acuerdas del Ukanlos, {voc}? Dos del grupo en el suelo, el reloj en el último minuto y tú con el "
@@ -1297,19 +1302,20 @@ BATTLES = [
     "¿Te acuerdas de las aguas termales de Seliana, {voc}? Después de cada cacería en la escarcha. Ahí "
     "aprendí que el agua caliente no es el enemigo. La bañera sí.",
     "¿Te acuerdas del Plesioth de la Selva, {voc}? Su golpe de cadera me mandó a la otra punta del mapa. "
-    "Tú te reías. Le sigo guardando rencor.",
+    "Tú cruzaste el mapa corriendo a por mí. Al Plesioth le sigo guardando rencor.",
     "¿Te acuerdas de la primera Nargacuga, {voc}? De noche, sin verle más que los ojos, y tú con la "
     "espada larga esperando el momento. Yo estaba de guardia. Muy valiente. Detrás de una roca.",
     "¿Te acuerdas del Malzeno primordial, {voc}? Dos carros, y a la tercera sacaste la espada y escudo y "
     "no cayó nadie más. El grupo aún te debe esa.",
     "¿Te acuerdas de cuando el Rajang te persiguió por todo el mapa, {voc}? Tú con la ballesta pesada "
     "dándole perdigones a quemarropa y yo aturdiéndolo a porrazos. Qué equipo.",
-    "¿Te acuerdas de la ventisca de las Montañas Nevadas, {voc}? Te quedaste sin bebida caliente y te "
-    "di la mía. Bueno, me la quitaste. Pero yo te la habría dado.",
+    "¿Te acuerdas de la ventisca de las Montañas Nevadas, {voc}? Te quedaste sin bebida caliente y nos "
+    "bebimos la mía a medias, a sorbos, acurrucados detrás de una roca. Nunca me ha sabido tan rica.",
     "¿Te acuerdas del castillo Schrade, {voc}? Cuando el Fatalis cayó, el grupo se quedó en silencio un "
     "minuto entero. Yo no: yo maullé. Alguien tenía que celebrarlo.",
-    "¿Te acuerdas de Mochi, el canyne de Kamura, {voc}? Me robaba el dango y tú le dabas la razón. Y luego "
-    "en Wilds, el Seikret. Siempre hay un bicho que me quiere quitar el sitio.",
+    "¿Te acuerdas de Mochi, el canyne de Kamura, {voc}? Me robaba el dango y encima tú le rascabas las "
+    "orejas. Y luego, en las Tierras Prohibidas, el Seikret. Siempre hay un bicho que me quiere quitar el "
+    "sitio a tu lado.",
     "¿Te acuerdas de cuando el grupo te llamaba «el que no se cae», {voc}? Con el cuerno encajabas todo. "
     "Yo os curaba igual, por si acaso.",
     "Ya lo he dicho alguna vez, {voc}, pero lo repito: de todos los cazadores de Pokke, Astera y Elgado, "

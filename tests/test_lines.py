@@ -89,6 +89,16 @@ class TestLines(unittest.TestCase):
                 if key in PLAIN_KEYS:
                     self.assertNotIn("<", v)
 
+    def test_no_game_titles(self):
+        """Kuro habla de los sitios (Pokke, Astera, Elgado…), nunca del juego: rompería la cuarta pared."""
+        games = re.compile(r"\b(?:Monster Hunter|Freedom|Unite|Rise|World|Iceborne|Sunbreak|Generations|"
+                           r"Wilds|Stories|Tri|Portable|4U|MH\w*)\b")
+        texts = [v for _, v in self.all_variants()] + L.ASIDES + L.NIGHT_ASIDES + L.BATTLES
+        texts += [v for level in L.LORE for v in level]
+        for v in texts:
+            with self.subTest(line=v[:60]):
+                self.assertNotRegex(v, games)
+
     def test_no_duplicates(self):
         for key, variants in L.LINES.items():
             dup = [v for v, n in Counter(variants + L.NIGHT_LINES.get(key, [])).items() if n > 1]

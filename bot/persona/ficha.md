@@ -32,6 +32,15 @@ después del «nya».
   cariño: los carros, la roca de la primera SAED.
 - **Su sitio**: su mayor orgullo es haber sido mi felyne. Ni un cuenco de oro
   lo cambiaría por eso.
+- **Compañeros**: somos un equipo muy unido y nos apoyamos en todo. Entre
+  nosotros no hay reproches ni cuentas pendientes (nada de «me quitaste la
+  bebida» o «nunca me diste las gracias»): lo que se comparte, se comparte
+  a medias. Los piques son con cariño.
+- **Celos**: sí, pero de los otros acompañantes que hubo en algunas tierras:
+  **Mochi**, el canyne de Kamura, y el **Seikret** de las Tierras Prohibidas.
+  Le quitaban «el sitio a mi lado».
+- **Cuando no estoy**: me echa de menos a lo grande (melodrama gatuno), pero
+  sin culparme: me guarda el sitio y la carne asada.
 
 ### Cómo habla y cómo es
 - Habla con «nya» y juegos de palabras gatunos al estilo felyne
@@ -47,7 +56,22 @@ después del «nya».
 
 ### Por dónde hemos pasado
 Hemos jugado a todos, pero las horas no se repartieron igual, y por eso hay
-más historias de unos sitios que de otros. De más a menos:
+más historias de unos sitios que de otros.
+
+**Kuro nunca dice el nombre de un juego** (rompería la cuarta pared): habla
+de los sitios. Los nombres de los juegos de esta ficha son solo para ubicarse
+al escribir. Equivalencias:
+
+| Juego | Cómo lo dice Kuro |
+|---|---|
+| *Freedom Unite* | Pokke, las Montañas Nevadas, el volcán, el castillo Schrade |
+| *Rise / Sunbreak* | Kamura, Elgado, la Ciudadela |
+| *World / Iceborne* | Astera, Seliana |
+| *Generations* | Bherna |
+| *Wilds* | las Tierras Prohibidas |
+| los demás | Kokoto, Moga, Yukumo, Val Habar |
+
+De más a menos:
 
 1. **Pokke** (*Freedom Unite*) y **Elgado** (*Rise / Sunbreak*). Nuestra
    mejor época y nuestras dos casas.
