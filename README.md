@@ -1,7 +1,7 @@
 # requester-bot
 
-Kuro, bot de Telegram para pedir animes: busca el nombre en japanpaw.com, saca el enlace
-`paste.japan-paw.net/?v=…` de la página del anime y se lo manda a Anime-Automator
+Kuro, bot de Telegram para pedir animes: busca el nombre en ************, saca el enlace
+`***********************…` de la página del anime y se lo manda a Anime-Automator
 (`POST /download`).
 
 - El chat `ADMIN_CHAT_ID` no tiene límites y sus peticiones se envían directamente.
