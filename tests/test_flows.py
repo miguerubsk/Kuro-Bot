@@ -372,6 +372,28 @@ class TestSearch(KuroTest):
         self.assertIn("🎬 Película · Suzumiya Haruhi no Shoushitsu", texts)
         self.assertTrue(any("T1 + 1 extra" in t for t in texts), texts)
 
+    async def test_sequel_with_its_own_name_and_an_ova_join_the_series(self):
+        """Steins;Gate 0 es la T2 de Steins;Gate y «Divide By Zero» una OVA suya (lo dice Anime-Automator)."""
+        self.site.with_details = False
+        self.site.results = [SearchResult(51, "Steins;Gate", "https://japanpaw.com/sg"),
+                             SearchResult(52, "Steins;Gate Movie: Fuka Ryouiki no Déjà vu", "https://japanpaw.com/m"),
+                             SearchResult(53, "Steins;Gate 0", "https://japanpaw.com/sg0"),
+                             SearchResult(54, "Steins;Gate: Kyoukaimenjou no Missing Link – Divide By Zero",
+                                          "https://japanpaw.com/dbz")]
+        self.site.kinds = {52: {"pelicula"}}
+        self.automator.season_info = [
+            {"key": "steinsgate", "season": "1", "base": "Steins;Gate"},
+            {"key": "steinsgatemovie", "season": "1", "base": "Steins;Gate Movie - Fuka Ryōiki no Déjà vu"},
+            {"key": "steinsgate", "season": "2", "base": "Steins;Gate", "subtitle": "0"},
+            {"key": "dbz", "season": "1", "base": "Steins;Gate - Kyōkaimenjō no Missing Link – Divide By Zero",
+             "series": "Steins;Gate", "series_key": "steinsgate", "format": "OVA"}]
+        await self.type(FreeText, CLIENT, "steins gate")
+        status = self.bot.to(CLIENT)[-1]
+        self.assertEqual(self.buttons(status), ["pick:51", "pick:53", "pick:52", "pick:54", "all:1", "cancel"])
+        texts = [b.text for row in status.reply_markup.inline_keyboard for b in row]
+        self.assertIn("T2 · Steins;Gate 0", texts)
+        self.assertTrue(any("T1–T2 + 2 extras" in t for t in texts), texts)
+
     async def test_stranger_is_denied(self):
         await self.type(FreeText, STRANGER, "anime a")
         self.assertEqual(len(self.bot.to(STRANGER)), 1)

@@ -27,7 +27,8 @@ log = logging.getLogger(__name__)
 
 def _search_result(item: dict) -> SearchResult:
     """Un resultado de la búsqueda de WordPress (sin título: «Post <id>»)."""
-    title = htmlmod.unescape(item.get("title") or "").strip()
+    # la web escapa algunos signos: «Steins\;Gate»
+    title = htmlmod.unescape(item.get("title") or "").replace("\\", "").strip()
     return SearchResult(post_id=int(item["id"]), url=item["url"], title=title or f"Post {item['id']}")
 
 

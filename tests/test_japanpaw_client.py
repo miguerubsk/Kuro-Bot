@@ -79,6 +79,10 @@ class SearchTest(unittest.IsolatedAsyncioTestCase):
             SearchResult(6, "Post 6", f"{BASE}/p6"),
         ])
 
+    async def test_escaped_signs_lose_the_backslash(self):
+        client, _ = client_for(search_site({"Steins": [hit(1, r"Steins\;Gate 0")]}))
+        self.assertEqual([r.title for r in await client.search("Steins")], ["Steins;Gate 0"])
+
     async def test_keeps_the_best_eight(self):
         client, _ = client_for(search_site({"Shiki": [hit(i, f"Otra cosa {i}") for i in range(20)]
                                             + [hit(99, "Shiki")]}))
