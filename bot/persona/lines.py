@@ -135,7 +135,7 @@ LINES: dict[str, list[str]] = {
         "Mejor como lo llaman allí, en romaji: <code>{example}</code>.\n"
         "2️⃣ Te enseño lo que encuentre en fichas: pásalas con ◀️ ▶️ y pulsa la buena. Si tiene varias "
         "temporadas, puedes pedir una o todas de golpe.\n"
-        "3️⃣ Miro el almacén: lo que ya tengamos no se vuelve a bajar, y si ya está entero no te gasta carro.\n"
+        "3️⃣ Miro el almacén: lo que ya tengamos no se vuelve a bajar, y si ya está entero, o lo tenemos a medias, no te gasta carro.\n"
         "4️⃣ El miauestro da el visto bueno y salgo de caza. Te aviso de cada capítulo que llegue y "
         "de cuándo está todo.",
     ],
@@ -433,10 +433,16 @@ LINES: dict[str, list[str]] = {
     # se añade a "sent_to_admin" cuando ya hay parte en la biblioteca
     "library_partial": [
         "\n📚 Ya tenemos {have} de {available} capítulos: el encargo es solo por los {count} "
-        "que faltan ({ranges}).",
+        "que faltan ({ranges}) y completarlo <b>no gasta carro</b>.",
         "\n📚 En el almacén ya hay {have} de {available}; Kuro solo traería los {count} que faltan "
-        "({ranges}).",
-        "\n📚 Tenemos {have} de {available}. Solo voy a por los {count} que faltan ({ranges}).",
+        "({ranges}), y eso <b>no gasta carro</b>.",
+        "\n📚 Tenemos {have} de {available}. Solo voy a por los {count} que faltan ({ranges}): "
+        "rellenar huecos <b>no gasta carro</b>, nya.",
+    ],
+    # se añade a "bundle_sent" cuando todo el lote ya está a medias o en peor calidad
+    "bundle_exempt": [
+        "\n📚 Todo esto ya asoma por el almacén, aunque sea a medias o pochito: <b>no gasta carro</b>.",
+        "\n📚 De todo esto ya hay algo en el almacén; completarlo <b>no gasta carro</b>, nya.",
     ],
     # se añade a "sent_to_admin" cuando lo que falta ya está, pero en peor calidad
     "library_upgrade": [
@@ -1193,7 +1199,7 @@ LORE: list[list[str]] = [
         "golpe.",
         "Con la ballesta pesada, el miauestro era un muro, {voc}. Escudo acoplado, plantado delante del "
         "monstruo y disparando a quemarropa. Los demás se escondían detrás de él. Yo también.",
-        "En Sunbreak, la ballesta pesada del miauestro era una apisonadora, {voc}. Dispersión a quemarropa "
+        "En Elgado, la ballesta pesada del miauestro era una apisonadora, {voc}. Dispersión a quemarropa "
         "y el monstruo se deshacía. Ni el hacha cargada le hacía sombra. Bueno, casi.",
         "Cuando el miauestro tocaba el cuerno de caza, {voc}, el grupo pegaba más fuerte, aguantaba más y "
         "ni oía los rugidos. Y él encajaba golpes que a otro lo habrían mandado al carro.",
@@ -1284,7 +1290,7 @@ BATTLES = [
     "cuerno, sin caerte. Todavía me tiemblan los bigotes.",
     "¿Te acuerdas de los Frenesís de Kamura, {voc}? Tú en la puerta con la ballesta pesada, escudo "
     "delante, y ni un monstruo pasó. Mochi y yo apostábamos cuántos caían por oleada.",
-    "¿Te acuerdas de la ballesta pesada en Sunbreak, {voc}? Dispersión a quemarropa y los monstruos se "
+    "¿Te acuerdas de la ballesta pesada en Elgado, {voc}? Dispersión a quemarropa y los monstruos se "
     "deshacían. Hubo días en que el hacha cargada se puso celosa.",
     "¿Te acuerdas del Valstrax de Bherna, {voc}? Cayó del cielo como un cometa y tú ni pestañeaste. Yo "
     "estaba en modo felyne, cazando por mi cuenta, y me escondí detrás de ti igual.",

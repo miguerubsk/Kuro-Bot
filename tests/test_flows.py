@@ -460,6 +460,24 @@ class TestClientOrder(KuroTest):
         self.assertTrue(self.k.db.get(1).quota_exempt)
         self.assertIsNotNone(self.k.db.get(2))
 
+    async def test_incomplete_in_library_is_exempt(self):
+        """Si ya tenemos parte del anime, completarlo no gasta carro."""
+        self.make(weekly_limit=1)
+        self.automator.library = {"status": "missing", "missing": [3, 4], "upgrade": [], "have": 2, "available": 4}
+        q = await self.pick()
+        self.assertIn("2 de 4", q.message.text)
+        self.assertIn("no gasta carro", q.message.text)
+        self.assertIn("no gasta cupo", self.admin_request_msg().text)
+        await self.press(Pick, CLIENT, "pick:12")
+        self.assertTrue(self.k.db.get(1).quota_exempt)
+        self.assertIsNotNone(self.k.db.get(2))
+
+    async def test_nothing_in_library_costs_a_cart(self):
+        self.automator.library = {"status": "missing", "missing": [1, 2], "upgrade": [], "have": 0, "available": 2}
+        await self.pick()
+        self.assertFalse(self.k.db.get(1).quota_exempt)
+        self.assertNotIn("no gasta cupo", self.admin_request_msg().text)
+
     async def test_admin_unreachable_marks_failed(self):
         self.bot.fail_next = BadRequest("chat not found")
         await self.pick()
@@ -489,6 +507,14 @@ class TestBundle(KuroTest):
         await self.press(Decision, ADMIN, "bok:1", message=admin_msg)
         self.assertEqual([j for _, j in self.automator.downloads], [1, 2])
         self.assertIn("T2", self.bot.to(CLIENT)[-1].text)
+
+    async def test_incomplete_bundle_costs_nothing(self):
+        self.automator.library = {"status": "missing", "missing": [3, 4], "upgrade": [], "have": 2, "available": 4}
+        await self.type(FreeText, CLIENT, "anime a")
+        q = await self.press(PickAll, CLIENT, "all:1")
+        self.assertEqual(self.k.db.used_this_week(CLIENT), 0)
+        self.assertIn("no gasta carro", q.message.text)
+        self.assertNotIn("peor calidad", q.message.text)
 
     async def test_admin_bundle_goes_direct(self):
         await self.type(FreeText, ADMIN, "anime a")
@@ -656,6 +682,15 @@ class TestTorrent(KuroTest):
         self.assertEqual(self.automator.torrent_downloads, [(108891, "3", 1)])
         self.assertEqual(self.automator.downloads, [])
         self.assertEqual(req.status, Status.APPROVED)
+
+    async def test_incomplete_by_torrent_costs_nothing(self):
+        self.make(torrent_access="all")
+        self.automator.torrent_result = {**self.automator.torrent_result, "missing": [3], "have": 2}
+        q = await self.press(TorrentPick, CLIENT, "trt:108891")
+        await self.press(TorrentGo, CLIENT, "trg:108891:2", message=q.message)
+        self.assertTrue(self.k.db.get(1).quota_exempt)
+        self.assertEqual(self.k.quota.remaining(CLIENT), 3)
+        self.assertIn("no gasta cupo", self.admin_request_msg().text)
 
     async def test_client_order_admin_fixes_season_then_approves(self):
         self.make(torrent_access="all")

@@ -23,6 +23,7 @@ from ..core.text import compress_ranges, e, season_tag
 from ..ui.keyboards import TORRENT_ALL as ALL, TORRENT_GO as GO, TORRENT_GO_ALL as GO_ALL
 from ..ui.keyboards import TORRENT_OFFER as OFFER, button, cancel_row, season_row
 from ..ui.session import SeasonGroup
+from .library import Assessment
 from .placing import BundlePlacing, Item, Placing
 from .targets import TORRENT_SEASON as SEASON, SingleTarget
 
@@ -59,6 +60,8 @@ def admin_note(result: dict) -> str:
     txt = f"\n🧲 Por torrent: {compress_ranges(result.get('missing') or [])}"
     if groups:
         txt += " · " + ", ".join(f"{e(g)} ×{n}" for g, n in sorted(groups.items(), key=lambda x: -x[1]))
+    if result.get("have"):
+        txt += f"\n📚 En biblioteca: {result['have']} — <b>no gasta cupo</b>"
     if result.get("folder"):
         txt += f"\nCarpeta: <code>{e(result['folder'])}</code>"
     return txt
@@ -79,7 +82,12 @@ def offer_entry(anilist_id: int, result: dict, name: str, option) -> dict:
     season = "" if tag or movie else str(result.get("season") or "1")
     return {"anilist_id": anilist_id, "name": name, "season": season, "tag": tag, "movie": movie,
             "missing": result.get("missing") or [], "airing": releasing and not movie,
-            "note": admin_note(result)}
+            "have": result.get("have") or 0, "note": admin_note(result)}
+
+
+def library_of(offer: dict) -> Assessment:
+    """Si ya tenemos parte, completarlo no gasta cupo (como los encargos de la web)."""
+    return Assessment(exempt=bool(offer.get("have")))
 
 
 def post_of(offer: dict) -> TorrentPost:
@@ -178,7 +186,7 @@ class TorrentPlacing(Placing):
             await self.stop("already_pending", title=prev.title)
         # la temporada puede venir corregida por el admin (flechas)
         self.post = post_of({**self.offer, "season": self.season if self.offer["season"] else ""})
-        return [Item(self.post)]
+        return [Item(self.post, check=library_of(self.offer))]
 
     def store(self, items):
         rid = self._add(items[0])
@@ -274,7 +282,7 @@ class TorrentBundlePlacing(BundlePlacing):
             if self.sub.already_active(-offer["anilist_id"]):
                 self.skipped.append(season_tag(offer["show"]))
                 continue
-            items.append(Item(post_of(offer), offer["show"]))
+            items.append(Item(post_of(offer), offer["show"], library_of(offer)))
         if not items:
             await self.stop("bundle_all_have", title=self.group.base)
         return items

@@ -308,6 +308,6 @@ class BundlePlacing(Placing):
 
     def sent_text(self, target):
         skipped = self.say("bundle_skipped", items_html=", ".join(self.skipped)) if self.skipped else ""
-        upgrade = self.say("library_upgrade") if self.exempt else ""
+        free = self.say("bundle_exempt") if self.exempt else ""
         return (self.say("bundle_sent", title=self.group.base, items_html=self._items_html(target), **self._left())
-                + upgrade + skipped)
+                + free + skipped)
