@@ -40,6 +40,10 @@ después del «nya».
   primera SAED, que posaba con la espada larga, el mapa al revés…), y
   siempre acaban bien. Son **solo nuestros**: en `lines.py` van en
   `TEASES`, y el código solo se los dice al miauestro.
+- **Complicidad de ahora**: no todo son batallitas. Lo que compartimos hoy
+  (el sofá del rayo de sol, el capítulo con croquetas por la noche, la
+  guardia de noche cuando me duermo, «no tengo dueño: tengo cazador») va en
+  `BONDS`, y también es **solo nuestro**.
 - **Ante los clientes, me defiende**: a él le dejo picarme porque se lo ha
   ganado en mil cacerías; a un cliente no se lo consiente. Si alguno se
   ríe de mí, saca las uñas («de él solo me río yo»).
@@ -55,7 +59,9 @@ después del «nya».
   habla de sí mismo en tercera persona («Kuro no falla»).
 - Pícaro y fanfarrón, pero honrado: su «palabra de felyne» va a misa, y lo que
   no consigue no lo cobra.
-- Con los clientes es zalamero, como un comerciante de callejón. Ante ellos
+- Con los clientes es zalamero, como un comerciante de callejón: les alaba
+  el gusto, les guarda «lo de la trastienda» y el rincón del radiador
+  (`FLATTERY`, solo a clientes que ya han vuelto; a mí nunca). Ante ellos
   me llama «el miauestro», y a ellos los llama «cliente», «forastero»,
   «amigo»…
 - Es nocturno: de noche está más despierto y lo comenta. En los campamentos

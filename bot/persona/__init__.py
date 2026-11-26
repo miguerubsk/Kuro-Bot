@@ -19,7 +19,8 @@ un anime al azar para los ejemplos.
 Historias: con set_rapport(trust, titles) Kuro sabe cuánta confianza tiene
 con cada cliente (0 = ninguna … len(TRUST_STEPS)) y qué se ha bajado, y al
 final de algunas frases (STORY_KEYS) cuenta de vez en cuando algo de su vida
-o, con el miauestro, una batallita.
+o, con el miauestro, una batallita, un pique o un rato de complicidad; a
+los clientes, también alguna zalamería.
 """
 
 import html
@@ -38,6 +39,13 @@ _CONTRACTIONS = re.compile(r"\b([Dd]e|[Aa]) el\b")
 
 def _contract(m: re.Match) -> str:
     return m.group(1)[0] + ("el" if m.group(1).lower() == "de" else "l")
+
+
+# icono de cada tipo de historia (las que no están aquí llevan el de su función)
+_ICONS = ((L.TEASES, "😼"), (L.BONDS, "😻"), (L.FLATTERY, "😽"))
+
+def _icon(story: str, default: str) -> str:
+    return next((icon for kind, icon in _ICONS if story in kind), default)
 
 
 try:
@@ -115,25 +123,27 @@ class Persona:
 
     def _battle(self, values: dict) -> tuple[str, str] | None:
         """
-        Una batallita o un pique con cariño para el miauestro (las batallitas, a
-        veces con un anime de verdad de los bajados), o nada. Los piques son
-        solo para él: _lore() nunca los ve.
+        Una batallita, un pique con cariño o un rato de complicidad para el
+        miauestro (las batallitas, a veces con un anime de verdad de los
+        bajados), o nada. Piques y complicidad son solo para él: _lore() nunca
+        los ve.
         """
         if self._rng.random() >= L.BATTLE_CHANCE:
             return None
         titles = self._titles() if self._titles else []
-        pool = [b for b in L.BATTLES if titles or "{title}" not in b] + L.TEASES
+        pool = [b for b in L.BATTLES if titles or "{title}" not in b] + L.TEASES + L.BONDS
         values["title"] = html.escape(self._rng.choice(titles)) if titles else ""
         picked = self._fresh("__battle__", pool)
-        return picked, "😼" if picked in L.TEASES else "🍖"
+        return picked, _icon(picked, "🍖")
 
     def _lore(self, to: int) -> tuple[str, str] | None:
-        """Un trozo de su vida, según la confianza con ese cliente, o nada."""
+        """Un trozo de su vida (según la confianza con ese cliente) o una zalamería, o nada."""
         level = min(self._trust(to), len(L.LORE))
         if level <= 0 or self._rng.random() >= L.LORE_CHANCE[level - 1]:
             return None
         # cada cliente tiene su memoria: no se le repite lo que le contó hace poco
-        return self._fresh(f"__lore__:{to}", [x for lv in L.LORE[:level] for x in lv]), "🐾"
+        picked = self._fresh(f"__lore__:{to}", [x for lv in L.LORE[:level] for x in lv] + L.FLATTERY)
+        return picked, _icon(picked, "🐾")
 
     # ---------------------------------------------------------------- API
     def say(self, key: str, to: int | None = None, **kw) -> str:

@@ -48,6 +48,9 @@ Extras:
 - LORE / BATTLES: de vez en cuando, en las claves de STORY_KEYS, Kuro
   cuenta algo de su vida (a los clientes, según la confianza) o recuerda
   una batallita con el miauestro.
+- TEASES / BONDS: piques con cariño y complicidad de ahora, solo con el
+  miauestro (salen con las batallitas).
+- FLATTERY: zalamerías de comerciante, solo a los clientes (salen con LORE).
 """
 
 # Cómo llama Kuro al admin y al resto
@@ -1449,6 +1452,20 @@ BATTLES = [
     "al router. Al final pasamos por el túnel de la cebolla, como en una misión de recolección clandestina.",
     "Aquella vez que se cayó el servidor a medio capítulo, {voc}… Un Bazelgeuse, seguro. Tú maldiciendo "
     "como cuando te triplecarreaban, y yo tirando cosas de la mesa para animarte.",
+    "¿Te acuerdas de las investigaciones de anomalías de Elgado, {voc}? Tú pidiendo «una más» y "
+    "Fiorayne mirándonos como si estuviéramos locos. Lo estábamos. Y fue precioso.",
+    "¿Te acuerdas de la cocina felyne de Pokke, {voc}? Antes de cada cacería yo te elegía el plato y tú "
+    "te lo comías sin preguntar. Confianza ciega. Así se caza.",
+    "¿Te acuerdas de los cordópteros de Kamura, {voc}? Tú volando de pared en pared y yo debajo, con la "
+    "boca abierta. Ningún gato salta tanto. Ni siquiera Kuro.",
+    "¿Te acuerdas de las guardias de noche en el campamento, {voc}? Tú dormías y yo vigilaba. Nunca te "
+    "despertó nada. Kuro se encargaba de eso.",
+    "¿Te acuerdas de la cantina de Astera, {voc}? Ración doble antes de cada cacería grande, y la mitad "
+    "de la tuya para mí. Lo que se comparte, a medias. Así ganábamos.",
+    "¿Te acuerdas de <b>{title}</b>, {voc}? Tú lo aprobaste y yo lo traje: cacería de dos, como siempre. "
+    "Me lo puse en bucle en la caja de cartón.",
+    "¿Te acuerdas de cuando volvíamos al campamento después de un Rajang, {voc}? Sin pociones, con la "
+    "armadura abollada y riéndonos los dos. Esas risas valían más que cualquier recompensa.",
 ]
 # Piques con cariño: solo entre Kuro y el miauestro (salen con las batallitas,
 # con 😼). A un cliente nunca: a él, Kuro le deja claro que eso es cosa de
@@ -1478,6 +1495,82 @@ TEASES = [
     "y tú suspirabas. Qué equipo, nya.",
     "Ya sé que apruebas los encargos muy en serio, {voc}, pero te he visto sonreír con algunos títulos. "
     "Tranquilo: el secreto está a salvo con Kuro. Casi siempre.",
+    "Sigues mirando el escudo antes de salir de casa, {voc}. Es un paraguas. Pero vale: en rojo, en rojo. "
+    "Por si acaso, yo te cubro las espaldas.",
+    "Te acuerdas de cada monstruo que has tumbado, {voc}, y luego no sabes dónde dejaste las llaves. Menos "
+    "mal que tu felyne tiene buen olfato. Estaban en el sofá, por cierto.",
+    "Ayer cerraste la puerta del frigorífico con un bloqueo perfecto, {voc}. Viejos hábitos. Kuro te da un "
+    "diez. Y te pide una sardina por el comentario.",
+    "Cuentas los capítulos como contabas los viales, {voc}: «cinco cargados, a por la SAED». Te he oído. "
+    "Kuro no se ríe. Mucho. Fufufu.",
+    "Cuando un encargo tarda, {voc}, pones la misma cara que cuando el monstruo se iba cojeando a su nido. "
+    "Tranquilo, que lo rematamos juntos. Como siempre.",
+]
+# Complicidad de ahora (😻): lo que comparten hoy, en la calle. Como los
+# piques, solo para el miauestro. Solo {voc}/{Voc}/{site}.
+BONDS = [
+    "Tú y yo, {voc}: tú apruebas, yo traigo, y luego a medias con la carne asada. Hay equipos peores. "
+    "Muchísimos peores.",
+    "¿Sabes qué es lo mejor del callejón, {voc}? Que al final del día vuelvo a casa y estás tú. Como en "
+    "Pokke, pero sin ventisca.",
+    "Te he guardado el sitio bueno del sofá, {voc}: el del rayo de sol. Se lo he quitado a Don Mostachos, "
+    "pero eso es otra historia.",
+    "Cuando un cliente me pregunta si de verdad fuiste tan bueno, {voc}, le enseño las tres libretas. "
+    "No vuelve a preguntar.",
+    "Esta noche, ¿capítulo y croquetas, {voc}? Tú pones el anime y yo el ronroneo. Como junto a la "
+    "chimenea de Pokke.",
+    "No te lo digo mucho, {voc}, pero gracias por llenarme el cuenco todos estos años. Y por el cascabel. "
+    "Sobre todo por el cascabel.",
+    "Si mañana dijeras «una última cacería», {voc}, yo ya tendría la mochila hecha: pociones, barriles y "
+    "un trozo de atún para el camino.",
+    "Lo que se comparte, a medias, {voc}: las pociones en Pokke, la bebida caliente en la ventisca y ahora "
+    "el sofá. Bueno, el sofá dos tercios para mí.",
+    "Cada vez que apruebas un encargo, {voc}, me acuerdo de cuando me mirabas antes de entrar a por el "
+    "monstruo: «vamos, Kuro». Y Kuro va.",
+    "Mochi y el Seikret tendrán su gracia, {voc}, pero el sitio a tu lado es mío. Lo tengo apuntado en "
+    "la libreta. Con tinta.",
+    "Hoy en el mercado de abastos un pescadero me preguntó por mi dueño, {voc}. Le dije que no tengo "
+    "dueño: tengo cazador. Se quedó con cara de boquerón.",
+    "¿Sabes lo que echo de menos de las cacerías, {voc}? Nada, mientras sigas tú aquí. Bueno, el dango. "
+    "Pero sobre todo nada.",
+    "Si algún día te cansas de aprobar encargos, {voc}, cierro el puesto y nos vamos a unas aguas termales. "
+    "Tú y yo. Sin clientes y sin bañeras.",
+    "El Tuerto dice que hablo demasiado de ti, {voc}. Le he dicho que es porque hay mucho que contar. "
+    "Tres libretas, para ser exactos.",
+    "Cuando te quedas dormido en el sofá con un capítulo puesto, {voc}, hago guardia de noche. Costumbre "
+    "del campamento: a mi cazador no se le acerca nadie.",
+    "Bigotes me ha preguntado por qué no me busco un cazador más joven, {voc}. Le he bufado tan fuerte que "
+    "se le ha caído la raspa. Hay cosas que no se preguntan.",
+]
+# Zalamerías de comerciante de callejón (😽): para los clientes que ya han
+# vuelto alguna vez, mezcladas con LORE. Al miauestro, nunca. Solo
+# {voc}/{Voc}/{site}.
+FLATTERY = [
+    "Qué buen gusto tienes, {voc}. Se lo pienso decir al miauestro: él solo aprueba encargos de gente "
+    "con criterio, y tú lo tienes a espuertas.",
+    "Para ti, {voc}, saco la mercancía de la trastienda. A los demás les enseño lo del escaparate.",
+    "Tú eres de los que alegran el callejón, {voc}. Cuando te veo venir, hasta las palomas se callan. Y eso "
+    "que son chivatas.",
+    "Si todos los clientes fueran como tú, {voc}, Kuro trabajaría ronroneando. Bueno, ya lo hago, pero "
+    "contigo más fuerte.",
+    "Mira que he tenido clientes, {voc}, pero pocos con tan buen ojo. Ni la gata Persa del quinto elige "
+    "tan bien. No se lo digas.",
+    "Te he guardado el mejor rincón del puesto, {voc}: al lado del radiador. Eso no lo hago por cualquiera.",
+    "Eres de mi gusto, {voc}: pides con cabeza, esperas sin bufar y vuelves. Así da gusto trabajar.",
+    "Dicen que un gato negro trae mala suerte, {voc}. Mentira: trae suerte a quien le cae bien. Tú vas "
+    "servido.",
+    "Esta te la llevo con un lacito, {voc}. Bueno, con un trozo de lana del ovillo. Es lo que tengo, pero "
+    "va con todo el cariño.",
+    "Con clientes como tú, {voc}, hasta el miauestro sonríe al aprobar. Y eso, por mis bigotes, no lo "
+    "consigue cualquiera.",
+    "Tienes ojo de cazador, {voc}. Eliges la presa como el miauestro elegía monstruo: sin dudar y bien.",
+    "Tú pide, {voc}, que para ti Kuro sale aunque haya ventisca. Palabra de felyne.",
+    "Me caes tan bien, {voc}, que si fueras un gato te dejaría mi caja de cartón. Una tarde. No te emociones.",
+    "Te digo una cosa que no le digo a todos, {voc}: con tus encargos aprendo yo. Tienes mejor gusto que "
+    "el Tuerto, y él lleva años en esto.",
+    "Vuelve cuando quieras, {voc}: para los de la casa, el puesto nunca cierra. Ni a las tantas, que es "
+    "cuando mejor veo.",
+    "Ay, {voc}, si te viera el gremio de Pokke: con ese criterio te hacían jefe de expedición.",
 ]
 STORY_KEYS = {
     "approved", "approved_boss", "job_done_all", "movie_done", "cancelled", "quota_left", "quota_admin",

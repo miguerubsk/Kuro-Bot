@@ -97,7 +97,7 @@ class TestLines(unittest.TestCase):
         games = re.compile(r"\b(?:Monster Hunter|Freedom|Unite|Rise|World|Iceborne|Sunbreak|Generations|"
                            r"Wilds|Stories|Tri|Portable|4U|MH\w*)\b")
         texts = [v for _, v in self.all_variants()] + L.ASIDES + L.NIGHT_ASIDES + L.BATTLES + L.TEASES
-        texts += [v for level in L.LORE for v in level]
+        texts += [v for level in L.LORE for v in level] + L.BONDS + L.FLATTERY
         for v in texts:
             with self.subTest(line=v[:60]):
                 self.assertNotRegex(v, games)
@@ -177,7 +177,7 @@ class TestLines(unittest.TestCase):
 class TestStories(unittest.TestCase):
     def test_lore_and_battles_are_valid(self):
         stories = ([("lore", x) for lv in L.LORE for x in lv] + [("battle", x) for x in L.BATTLES]
-                   + [("tease", x) for x in L.TEASES])
+                   + [("tease", x) for x in L.TEASES + L.BONDS + L.FLATTERY])
         for kind, v in stories:
             with self.subTest(line=v[:50]):
                 self.assertLessEqual(fields(v), ALWAYS | ({"title"} if kind == "battle" else set()))
@@ -210,7 +210,7 @@ class TestStories(unittest.TestCase):
         p.set_rapport(lambda _: 3, lambda: ["Anime <X>"])
         told = self.stories(p, 1)
         self.assertTrue(told)
-        self.assertTrue(all("🍖" in t or "😼" in t for t in told))   # batallitas y piques
+        self.assertTrue(all(any(i in t for i in "🍖😼😻") for t in told))   # batallitas, piques y complicidad
         self.assertTrue(any("Anime &lt;X&gt;" in t for t in told))
         p.set_rapport(lambda _: 3, lambda: [])
         self.assertTrue(all("{title}" not in t and "<b></b>" not in t for t in self.stories(p, 1)))
@@ -227,6 +227,29 @@ class TestStories(unittest.TestCase):
         to_client = self.stories(p, 2, 1500)
         self.assertTrue(to_client)
         self.assertFalse(any(t in s for s in to_client for t in teases))
+
+    def heard(self, told, lines):
+        return any(x.split("{")[0][:30] in s for s in told for x in lines)
+
+    def test_the_boss_hears_how_close_they_are_and_clients_never(self):
+        """La complicidad de ahora (😻) es cosa de los dos, como los piques."""
+        p = Persona(random.Random(11))
+        p.set_boss(1)
+        p.set_rapport(lambda _: 99, lambda: ["Anime X"])
+        to_boss = self.stories(p, 1, 1500)
+        self.assertTrue(self.heard(to_boss, L.BONDS))
+        self.assertTrue(any("😻" in s for s in to_boss))
+        self.assertFalse(self.heard(self.stories(p, 2, 1500), L.BONDS))
+
+    def test_kuro_sweet_talks_clients_but_not_the_boss(self):
+        """Zalamerías de comerciante (😽): a los clientes que ya han vuelto; al miauestro, nunca."""
+        p = Persona(random.Random(12))
+        p.set_boss(1)
+        p.set_rapport(lambda _: 1, lambda: ["Anime X"])
+        to_client = self.stories(p, 2, 1500)
+        self.assertTrue(self.heard(to_client, L.FLATTERY))
+        self.assertTrue(any("😽" in s for s in to_client))
+        self.assertFalse(self.heard(self.stories(p, 1, 1500), L.FLATTERY))
 
     def test_kuro_tells_clients_the_teasing_is_his_alone(self):
         lore = [x for lv in L.LORE for x in lv]
