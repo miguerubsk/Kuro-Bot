@@ -676,6 +676,26 @@ LINES: dict[str, list[str]] = {
         "palabra de felyne.",
         "😿 <b>{name}</b> me ha ganado esta vez, {voc}: ni un capítulo. No te gasta carro.",
     ],
+    # quitados de la cola por el miauestro (a un cliente; las suyas, en BOSS_LINES)
+    "ep_cancelled": [
+        "✂️ El miauestro ha sacado de la cola {count} capítulo(s) de <b>{name}</b> ({ranges}), {voc}. "
+        "Sus razones tendrá; el resto sigue su camino, nya.",
+        "✂️ Aviso, {voc}: de <b>{name}</b>, el miauestro ha quitado de la cola {count} capítulo(s) "
+        "({ranges}). Lo demás lo sigo trayendo.",
+        "✂️ El miauestro ha tachado {count} capítulo(s) de <b>{name}</b> de mi libreta ({ranges}), {voc}. "
+        "Con el resto sigo de caza.",
+    ],
+    "job_cancelled": [
+        "✂️ El miauestro ha quitado <b>{name}</b> de la cola, {voc}. Sus razones tendrá; no te gasta carro, nya.",
+        "✂️ <b>{name}</b> se queda sin traer, {voc}: lo ha sacado de la cola el miauestro. Tu carro vuelve "
+        "al establo.",
+        "✂️ Cambio de planes con <b>{name}</b>, {voc}: el miauestro lo ha quitado de la cola. Este encargo "
+        "no cuenta, nya.",
+    ],
+    "cancelled_note": [
+        "✂️ Los otros {count} ({ranges}) los quitó de la cola el miauestro.",
+        "✂️ Y {count} capítulo(s) ({ranges}) no venían: el miauestro los sacó de la cola.",
+    ],
     "movie_done": [
         "🎬 ¡<b>{name}</b> ya está en su sitio, {voc}! A disfrutar, nya~",
         "🎬 Película entregada: <b>{name}</b>. ¡Miauravilloso! Palomitas para ti, salmón para mí.",
@@ -1119,6 +1139,94 @@ NIGHT_LINES: dict[str, list[str]] = {
 }
 
 # Gestos que Kuro añade de vez en cuando al final de algunos mensajes.
+# Lo mismo, pero dicho al miauestro: Persona.say() las usa en vez de las de
+# LINES cuando le habla a él. Él no tiene carros ni se le cobra nada, así que
+# toda frase de clientes que hable de eso necesita aquí su versión (lo vigila
+# test_money_talk_never_reaches_the_boss), salvo las de CLIENT_ONLY_KEYS (solo
+# las oyen los clientes) y BOSS_ONLY_KEYS (solo él, y hablan de los carros de
+# los clientes).
+CLIENT_ONLY_KEYS = {"help_how", "help_track", "help_user", "bundle_rejected", "admin_unreachable",
+                    "rejected", "track_joined"}
+BOSS_ONLY_KEYS = {"quota_admin", "admin_reset", "track_admin_joined"}
+BOSS_LINES: dict[str, list[str]] = {
+    "library_complete": [
+        "😸 <b>{title}</b> ya está entero en el almacén, {voc}: {have} capítulos. Nada que cazar.",
+        "😸 Fufufu, {voc}, <b>{title}</b> ya duerme en nuestras estanterías ({have} capítulos). Lo guardaste tú, "
+        "¿no te acuerdas?",
+        "😸 No hace falta salir, {voc}: <b>{title}</b> está completito ({have} capítulos).",
+    ],
+    "library_movie": [
+        "😸 La película <b>{title}</b> ya está en el almacén, {voc}. Nada que cazar, nya.",
+        "😸 <b>{title}</b> ya está en la estantería de pelis, {voc}.",
+    ],
+    "library_busy": [
+        "😸 Lo que falta de <b>{title}</b> ya viene de camino por otro encargo, {voc}. No hace falta pedirlo "
+        "otra vez.",
+        "😸 Ya hay otro encargo trayendo <b>{title}</b>, {voc}. Llegará solo, nya.",
+    ],
+    "library_partial": [
+        "\n📚 Ya tenemos {have} de {available}: voy solo a por los {count} que faltan ({ranges}).",
+        "\n📚 En el almacén hay {have} de {available}, {voc}; traigo los {count} que faltan ({ranges}).",
+    ],
+    "bundle_exempt": [
+        "\n📚 De todo esto ya hay algo en el almacén: lo completo, nya.",
+    ],
+    "library_upgrade": [
+        "\n📀 Ya lo tenemos, pero en peor calidad: lo cambio por el bueno.",
+        "\n📀 Lo que hay está más rayado que mi poste de arañar, {voc}: lo cambio por el bueno.",
+    ],
+    "bundle_all_have": [
+        "😸 Todas las temporadas de <b>{title}</b> ya están en el almacén, {voc}. Nada que cazar.",
+        "😸 <b>{title}</b>, de la primera temporada a la última, ya está aquí, {voc}.",
+    ],
+    "nothing_new": [
+        "😸 <b>{title}</b> ya está entero en la colección, {voc}. Nada que cazar, nya.",
+        "😸 <b>{title}</b> ya duerme en el almacén, {voc}, de la cabeza a la cola.",
+        "😸 <b>{title}</b> ya estaba aquí, {voc}. Me ahorras el paseo.",
+    ],
+    "already_downloading": [
+        "😸 <b>{title}</b> ya se está descargando por otro lado, {voc}.",
+        "😸 Ya hay otro encargo yendo a por <b>{title}</b>, {voc}. Llegará solo, nya.",
+    ],
+    "tech_failure": [
+        "⚠️ ¡Gatástrofe técnica con <b>{title}</b>, {voc}! Habrá que echarle un ojo al almacén.",
+        "⚠️ <b>{title}</b> ha hecho saltar un barril bomba en el almacén, {voc}. Te toca revisarlo, nya.",
+    ],
+    "job_failed": [
+        "😿 No he conseguido ni un capítulo de <b>{name}</b>, {voc}. Nya…",
+        "😿 Vuelvo con las zarpas vacías: ni un capítulo de <b>{name}</b>, {voc}. Lo siento.",
+    ],
+    "movie_failed": [
+        "😿 No he podido traer <b>{name}</b>, {voc}. Nya…",
+        "😿 <b>{name}</b> se me ha escapado, {voc}. Lo siento.",
+    ],
+    "movie_already": [
+        "😸 La película <b>{title}</b> ya está en la colección, {voc}.",
+        "😸 <b>{title}</b> ya estaba en la estantería, {voc}. Nada que cazar.",
+    ],
+    "torrent_none": [
+        "😿 Por los tejados tampoco hay rastro de <b>{title}</b> con subtítulos en español, {voc}.",
+        "😿 En el mercadillo de los tejados <b>{title}</b> solo viene sin subtítulos en español, {voc}. Así no "
+        "lo quiero.",
+    ],
+    "torrent_seasons_none": [
+        "😿 De <b>{title}</b> no hay nada por los tejados que traiga subtítulos en español, {voc}.",
+        "😿 He mirado pieza a pieza y de <b>{title}</b> no queda nada que me sirva, {voc}.",
+    ],
+    "ep_cancelled": [
+        "✂️ Hecho, {voc}: {count} capítulo(s) de <b>{name}</b> fuera de la cola ({ranges}). Con el resto sigo.",
+        "✂️ Tachados de la libreta, {voc}: {count} capítulo(s) de <b>{name}</b> ({ranges}).",
+    ],
+    "job_cancelled": [
+        "✂️ <b>{name}</b> fuera de la cola, {voc}. Encargo cerrado, nya.",
+        "✂️ Hecho, {voc}: <b>{name}</b> tachado de la libreta. No salgo a por él.",
+    ],
+    "cancelled_note": [
+        "✂️ Los {count} que quitaste de la cola ({ranges}) no cuentan.",
+        "✂️ Sin contar los {count} que sacaste de la cola ({ranges}).",
+    ],
+}
+
 ASIDE_CHANCE = 0.18
 ASIDES = [
     "se lame una pata",

@@ -166,6 +166,54 @@ class TestJobComplete(EventsTest):
         self.assertEqual(self.new(ADMIN), [])             # ya se le dijo, con el detalle, en episode_failed
 
 
+class TestCancelled(EventsTest):
+    """Lo que el miauestro quita de la cola: un aviso por encargo, nunca uno por capítulo."""
+
+    async def test_part_of_a_client_order(self):
+        rid = await self.order(CLIENT)
+        await self.event(rid, "episodes_cancelled", episodes=[5, 6, 7, 9], done=0, failed=0, total=10)
+        (client,) = self.new(CLIENT)
+        self.assertTrue(said("ep_cancelled", client, boss=False), client)
+        self.assertIn("5-7, 9", client)
+        self.assertIn("miauestro", client)
+        self.assertNotIn("administrador", client)
+        self.assertEqual(self.new(ADMIN), [])             # lo ha hecho él: no hace falta contárselo
+
+    async def test_part_of_the_boss_order(self):
+        rid = await self.order(ADMIN)
+        await self.event(rid, "episodes_cancelled", episodes=[2, 3], total=4)
+        (text,) = self.new(ADMIN)
+        self.assertTrue(said("ep_cancelled", text, boss=True), text)
+        self.assertIn("2-3", text)
+
+    async def test_a_whole_client_order(self):
+        rid = await self.order(CLIENT)
+        await self.event(rid, "job_complete", done=[], failed=[], cancelled=[1, 2, 3])
+        (client,) = self.new(CLIENT)
+        self.assertTrue(said("job_cancelled", client, boss=False), client)
+        self.assertEqual(self.new(ADMIN), [])
+        self.assertEqual(self.k.db.get(rid).status, Status.FAILED)   # devuelve el carro
+
+    async def test_a_whole_boss_order(self):
+        rid = await self.order(ADMIN)
+        await self.event(rid, "job_complete", done=[], failed=[], cancelled=[1, 2], kind="movie")
+        (text,) = self.new(ADMIN)
+        self.assertTrue(said("job_cancelled", text, boss=True), text)
+
+    async def test_the_summary_tells_what_was_removed(self):
+        rid = await self.order(CLIENT)
+        await self.event(rid, "job_complete", done=[1, 2], failed=[3], cancelled=[4, 5])
+        (client,) = self.new(CLIENT)
+        self.assertTrue(said("job_done_partial", client))
+        self.assertIn("4-5", client)
+        self.assertIn("miauestro", client)
+        rid = await self.order(ADMIN, post="12")
+        await self.event(rid, "job_complete", done=[1], failed=[], cancelled=[2])
+        (text,) = self.new(ADMIN)
+        self.assertTrue(said("job_done_all", text))
+        self.assertIn("(2)", text)
+
+
 class TestOtherEvents(EventsTest):
     async def test_retry_only_the_first_time(self):
         rid = await self.order(CLIENT)

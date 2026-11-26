@@ -212,10 +212,16 @@ class FakeSite:
         pass
 
 
-def said(key: str, text: str) -> bool:
-    """¿Es `text` una de las frases de la clave `key`? (los huecos {…} valen cualquier cosa)"""
-    from bot.persona.lines import LINES, NIGHT_LINES
-    for template in LINES[key] + NIGHT_LINES.get(key, []):
+def said(key: str, text: str, boss: bool | None = None) -> bool:
+    """
+    ¿Es `text` una de las frases de la clave `key`? (los huecos {…} valen
+    cualquier cosa). Con boss=True, solo las del miauestro; con False, solo
+    las de los clientes.
+    """
+    from bot.persona.lines import BOSS_LINES, LINES, NIGHT_LINES
+    client = LINES[key] + NIGHT_LINES.get(key, [])
+    own = BOSS_LINES.get(key, [])
+    for template in {True: own, False: client}.get(boss, client + own):
         pattern = ".*?".join(re.escape(part) for part in re.split(r"\{[^}]*\}", template))
         # «de el puerto» -> «del puerto»: lo que va tras «de»/«a» puede venir contraído
         pattern = re.sub(r"\b(de|a)\\ ", r"\1l?\\ ?", pattern)

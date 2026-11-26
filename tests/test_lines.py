@@ -31,6 +31,8 @@ KEY_ARGS = {
     "ep_done": {"name", "ep", "n", "total"}, "ep_batch": {"name", "ep", "n", "total"}, "ep_retry": {"name", "ep", "delay"},
     "ep_fallback": {"name", "ep"}, "ep_failed": {"name", "ep"}, "job_done_all": {"name", "done"},
     "job_done_partial": {"name", "done", "failed", "failed_ranges"}, "job_failed": {"name"},
+    "ep_cancelled": {"name", "count", "ranges"}, "job_cancelled": {"name"},
+    "cancelled_note": {"count", "ranges"},
     "movie_done": {"name"}, "movie_retry": {"name", "delay"}, "movie_failed": {"name"},
     "movie_already": {"title"}, "admin_request": {"who", "req_id"}, "admin_new_member": {"who", "chat_id"},
     "admin_ep_failed": {"name", "ep", "req_id", "who", "error"},
@@ -66,13 +68,14 @@ def args_for(key: str) -> set[str]:
 
 class TestLines(unittest.TestCase):
     def all_variants(self):
-        for table in (L.LINES, L.NIGHT_LINES):
+        for table in (L.LINES, L.NIGHT_LINES, L.BOSS_LINES):
             for key, variants in table.items():
                 for v in variants:
                     yield key, v
 
     def test_night_keys_exist(self):
         self.assertFalse(set(L.NIGHT_LINES) - set(L.LINES))
+        self.assertFalse(set(L.BOSS_LINES) - set(L.LINES))
         self.assertFalse(L.ASIDE_KEYS - set(L.LINES))
 
     def test_only_known_fields(self):
@@ -114,6 +117,38 @@ class TestLines(unittest.TestCase):
         for key in L.LINES:
             for _ in range(len(L.LINES[key])):
                 p.say(key, 1, **{a: 7 if a in {"ep", "n", "total"} else "x" for a in args_for(key)})
+
+    def test_the_boss_hears_his_own_lines(self):
+        p = Persona(random.Random(3))
+        p.set_boss(9)
+        boss = {p.say("nothing_new", 9, title="X") for _ in range(20)}
+        client = {p.say("nothing_new", 1, title="X") for _ in range(20)}
+        self.assertTrue(boss and all(any(t.startswith(v.split("{")[0]) for v in L.BOSS_LINES["nothing_new"])
+                                     for t in boss), boss)
+        self.assertFalse(boss & client)
+        for key in L.BOSS_LINES:   # y con los mismos huecos que las de los clientes
+            for _ in range(len(L.BOSS_LINES[key])):
+                p.say(key, 9, **{a: 7 if a in {"ep", "n", "total"} else "x" for a in args_for(key)})
+
+    def test_money_talk_never_reaches_the_boss(self):
+        """
+        El miauestro no tiene carros: «no te lo cobro», «gratis» o «tus carros siguen
+        intactos» son cosas de clientes. Toda frase así necesita su versión para él
+        (BOSS_LINES), salvo las que solo oyen los clientes o solo él.
+        """
+        money = re.compile(r"\bcobr(?:o|a|ar)\b|gratis|gast\w*\s+(?:nada|carro|cupo)|sin gast|tus carros|"
+                           r"carros?\s+(?:siguen|intactos|sin tocar)|cuesta\s+(?:nada|carro)|no\s+te\s+cuesta|cupo",
+                           re.I)
+        for key, variants in L.LINES.items():
+            if key in L.CLIENT_ONLY_KEYS or key in L.BOSS_ONLY_KEYS:
+                continue
+            with self.subTest(key=key):
+                if any(money.search(v) for v in variants + L.NIGHT_LINES.get(key, [])):
+                    self.assertIn(key, L.BOSS_LINES)
+        for key, variants in L.BOSS_LINES.items():
+            for v in variants:
+                with self.subTest(key=key, line=v[:50]):
+                    self.assertNotRegex(v, money)
 
     def test_examples_vary(self):
         p = Persona(random.Random(5))

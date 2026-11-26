@@ -125,25 +125,55 @@ class EpisodeFailed(EventHandler):
             await self._tell(ev.to, "movie_failed", detail, name=ev.name)
 
 
+@on_event("episodes_cancelled")
+class EpisodesCancelled(EventHandler):
+    """Capítulos que el miauestro ha quitado de la cola: un solo aviso con todos (al miauestro no, que lo ha hecho él)."""
+
+    async def handle(self, ev):
+        self._progress(ev)
+        eps = ev.get("episodes") or []
+        if eps:
+            await self._tell(ev.to, "ep_cancelled", name=ev.name, count=len(eps), ranges=compress_ranges(eps))
+
+
 @on_event("job_complete")
 class JobComplete(EventHandler):
     async def handle(self, ev):
-        done, failed = ev.get("done") or [], ev.get("failed") or []
+        done, failed, cancelled = ev.get("done") or [], ev.get("failed") or [], ev.get("cancelled") or []
         req, to, to_admin = ev.req, ev.to, self._to_admin(ev)
-        self.k.db.set_progress(req.id, total=len(done) + len(failed), done=len(done), failed=len(failed))
+        self.k.db.set_progress(req.id, total=len(done) + len(failed) + len(cancelled), done=len(done),
+                               failed=len(failed))
         # sin nada descargado se da por fallido: devuelve el cupo
         self.k.db.set_status(req.id, Status.COMPLETED if done else Status.FAILED)
-        msg = self._summary(ev, done, failed, to_admin)
+        msg = self._summary(ev, done, failed, cancelled, to_admin)
         if msg:
             await self.k.messenger.send(to, msg)
-        if to_admin:
-            failed_html = f" ({compress_ranges(failed)})" if failed and not ev.movie else ""
-            await self._tell(self.k.admin, "admin_job_done", req_id=req.id, who=req.user_name, name=ev.name,
-                             done=len(done), failed=len(failed), failed_html=failed_html)
+        if to_admin and (done or failed):   # si lo ha quitado todo él, ya lo sabe
+            await self._tell_admin(ev, done, failed)
 
-    def _summary(self, ev: Event, done: list, failed: list, to_admin: bool) -> str | None:
-        """Lo que se le cuenta a quien lo pidió (nada si es el miauestro y ya lo supo por episode_failed)."""
+    async def _tell_admin(self, ev: Event, done: list, failed: list):
+        """El resumen para el miauestro de un encargo de un cliente."""
+        failed_html = f" ({compress_ranges(failed)})" if failed and not ev.movie else ""
+        await self._tell(self.k.admin, "admin_job_done", req_id=ev.req.id, who=ev.req.user_name, name=ev.name,
+                         done=len(done), failed=len(failed), failed_html=failed_html)
+
+    def _summary(self, ev: Event, done: list, failed: list, cancelled: list, to_admin: bool) -> str | None:
+        """
+        Lo que se le cuenta a quien lo pidió, en un solo mensaje (nada si es el
+        miauestro y ya lo supo por episode_failed), con lo quitado de la cola.
+        """
         say = self.k.persona.to(ev.to)
+        if cancelled and not (done or failed):
+            return say("job_cancelled", name=ev.name)
+        text = self._outcome(ev, say, done, failed, to_admin)
+        if not cancelled:
+            return text
+        note = say("cancelled_note", count=len(cancelled), ranges=compress_ranges(cancelled))
+        return f"{text}\n{note}" if text else note
+
+    @staticmethod
+    def _outcome(ev: Event, say, done: list, failed: list, to_admin: bool) -> str | None:
+        """Cómo ha ido lo que no se quitó de la cola."""
         if not done:
             return None if (ev.movie and not to_admin) else say("movie_failed" if ev.movie else "job_failed",
                                                                 name=ev.name)

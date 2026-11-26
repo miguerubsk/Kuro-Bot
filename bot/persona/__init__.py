@@ -92,7 +92,11 @@ class Persona:
         recent.append(choice)
         return choice
 
-    def _pick(self, key: str, night: bool) -> str:
+    def _pick(self, key: str, night: bool, boss: bool = False) -> str:
+        """Una variante de la clave: las del miauestro si le habla a él y las tiene (BOSS_LINES)."""
+        own = L.BOSS_LINES.get(key) if boss else None
+        if own:
+            return self._fresh(f"{key}@boss", own)
         return self._fresh(key, L.LINES[key] + (L.NIGHT_LINES.get(key, []) if night else []))
 
     def _aside(self, night: bool) -> str:
@@ -137,7 +141,7 @@ class Persona:
         values = {k: (html.escape(v) if isinstance(v, str) and not k.endswith("_html") else v)
                   for k, v in kw.items()}
         night = self.is_night()
-        template = self._pick(key, night)
+        template = self._pick(key, night, to is not None and to == self.boss)
         voc = self.vocative(to)
         values.setdefault("voc", voc)
         values.setdefault("Voc", voc[:1].upper() + voc[1:])
